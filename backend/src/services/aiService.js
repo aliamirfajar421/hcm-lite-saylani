@@ -30,13 +30,6 @@ function detectAiProvider() {
     return { provider: "none", key: "" };
   }
   const explicit = (process.env.AI_PROVIDER || "").trim().toLowerCase();
-  if (explicit === "gemini" || key.startsWith("AIza")) {
-    return {
-      provider: "gemini",
-      key,
-      model: (process.env.AI_MODEL || "").trim() || "gemini-2.5-flash",
-    };
-  }
   if (explicit === "groq" || key.startsWith("gsk_")) {
     return {
       provider: "groq",
@@ -44,10 +37,18 @@ function detectAiProvider() {
       model: (process.env.AI_MODEL || "").trim() || "llama-3.3-70b-versatile",
     };
   }
+  if (explicit === "openai" || key.startsWith("sk-")) {
+    return {
+      provider: "openai",
+      key,
+      model: (process.env.AI_MODEL || "").trim() || "gpt-4o-mini",
+    };
+  }
+  // Supports both classic AIza... and Google AI Studio AQ.... Gemini auth keys
   return {
-    provider: "openai",
+    provider: "gemini",
     key,
-    model: (process.env.AI_MODEL || "").trim() || "gpt-4o-mini",
+    model: (process.env.AI_MODEL || "").trim() || "gemini-2.5-flash",
   };
 }
 
@@ -349,7 +350,7 @@ async function runGeminiChatWithTools({ apiKey, model, systemPrompt, message, us
 
   for (const m of modelsToTry) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`;
       const toolsPayload = [
         {
           functionDeclarations: TOOL_DECLARATIONS.map((t) => ({
@@ -366,7 +367,10 @@ async function runGeminiChatWithTools({ apiKey, model, systemPrompt, message, us
       for (let step = 0; step < 3; step++) {
         const resp = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": apiKey,
+          },
           signal: AbortSignal.timeout(15000),
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: systemPrompt }] },
@@ -813,10 +817,13 @@ KPI JSON: ${JSON.stringify(kpiData)}`;
 
     let rawText = "";
     if (cfg.provider === "gemini") {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${cfg.model}:generateContent?key=${encodeURIComponent(cfg.key)}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${cfg.model}:generateContent`;
       const resp = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": cfg.key,
+        },
         signal: AbortSignal.timeout(15000),
         body: JSON.stringify({
           contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -999,10 +1006,13 @@ Return ONLY valid JSON with exact keys: {"type": "...", "start": "YYYY-MM-DD", "
   const callLlmOnce = async () => {
     let raw = "";
     if (cfg.provider === "gemini") {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${cfg.model}:generateContent?key=${encodeURIComponent(cfg.key)}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${cfg.model}:generateContent`;
       const resp = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": cfg.key,
+        },
         signal: AbortSignal.timeout(15000),
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: sysInstruction }] },
