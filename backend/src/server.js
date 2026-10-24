@@ -2,7 +2,8 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import connectDB from "./config/db.js";
+import mongoose from "mongoose";
+import { connectDBWithRetry, dbState } from "./config/db.js";
 import apiRoutes from "./routes/apiRoutes.js";
 import { ensureEnvBootstrapIfConfigured } from "./controllers/authController.js";
 
@@ -34,14 +35,18 @@ app.get("/", (_req, res) => {
   res.json({
     status: "ok",
     service: "HCM Lite Backend API",
+    dbConnected: mongoose.connection.readyState === 1 || dbState.connected,
     healthEndpoint: "/api/health",
   });
 });
 
 app.get("/api/health", (_req, res) => {
+  const isConnected = mongoose.connection.readyState === 1 || dbState.connected;
   res.json({
     status: "ok",
     service: "HCM Lite Backend API",
+    dbConnected: isConnected,
+    dbError: isConnected ? null : dbState.lastError,
     aiConfigured: Boolean(
       process.env.AI_API_KEY &&
       process.env.AI_API_KEY !== "your-gemini-or-groq-or-openai-api-key"
@@ -52,10 +57,13 @@ app.get("/api/health", (_req, res) => {
 export { app };
 
 if (process.env.NODE_ENV !== "test") {
-  connectDB().then(async () => {
-    await ensureEnvBootstrapIfConfigured();
-    app.listen(Number(PORT), "0.0.0.0", () => {
-      console.log(`HCM Lite Backend running on port ${PORT}`);
-    });
+  app.listen(Number(PORT), "0.0.0.0", () => {
+    console.log(`HCM Lite Backend running on port ${PORT}`);
+  });
+
+  connectDBWithRetry().then(async (conn) => {
+    if (conn) {
+      await ensureEnvBootstrapIfConfigured();
+    }
   });
 }
