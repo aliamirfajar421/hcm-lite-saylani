@@ -1,7 +1,20 @@
 import axios from "axios";
 
-export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001/api";
+function resolveApiBaseUrl(): string {
+  const raw = (process.env.NEXT_PUBLIC_API_URL || "").trim();
+  if (!raw) return "http://localhost:5001/api";
+  let normalized = raw.replace(/\/+$/, "");
+  if (!/^https?:\/\//i.test(normalized)) {
+    const isLocal = /^(localhost|127\.0\.0\.1|192\.168\.)/i.test(normalized);
+    normalized = `${isLocal ? "http" : "https"}://${normalized}`;
+  }
+  if (!normalized.endsWith("/api")) {
+    normalized = `${normalized}/api`;
+  }
+  return normalized;
+}
+
+export const API_URL = resolveApiBaseUrl();
 
 const api = axios.create({
   baseURL: API_URL,

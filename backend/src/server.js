@@ -30,6 +30,14 @@ app.use(cookieParser());
 
 app.use("/api", apiRoutes);
 
+app.get("/", (_req, res) => {
+  res.json({
+    status: "ok",
+    service: "HCM Lite Backend API",
+    healthEndpoint: "/api/health",
+  });
+});
+
 app.get("/api/health", (_req, res) => {
   res.json({
     status: "ok",
@@ -46,7 +54,7 @@ export { app };
 if (process.env.NODE_ENV !== "test") {
   connectDB().then(async () => {
     await ensureEnvBootstrapIfConfigured();
-    app.listen(PORT, () => {
+    app.listen(Number(PORT), "0.0.0.0", () => {
       console.log(`HCM Lite Backend running on port ${PORT}`);
     });
   });
