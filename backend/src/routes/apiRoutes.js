@@ -1,4 +1,6 @@
 import { Router } from "express";
+import mongoose from "mongoose";
+import { dbState } from "../config/db.js";
 import auth, { requireRole, requirePasswordChanged } from "../middlewares/auth.js";
 
 import {
@@ -86,6 +88,17 @@ import {
 } from "../controllers/dashboardAiCommsController.js";
 
 const router = Router();
+
+// Fast-fail if DB is disconnected, avoiding 10-second Mongoose query timeout
+router.use((_req, res, next) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({
+      message: `Database connecting... MongoDB Atlas is not yet reachable (${dbState.lastError || "waiting for connection"}). Please ensure '0.0.0.0/0' is whitelisted in MongoDB Atlas Network Access.`,
+      dbConnected: false,
+    });
+  }
+  next();
+});
 
 // ==================== M1: Auth & Access ====================
 router.get("/auth/setup-status", getSetupStatus);
