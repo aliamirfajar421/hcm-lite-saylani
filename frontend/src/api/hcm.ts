@@ -674,14 +674,17 @@ export const getDashboardApi = async (params?: {
 };
 
 // ==================== M8: AI Assistant ====================
-export const aiChatApi = async (message: string) => {
+export const aiChatApi = async (
+  message: string,
+  history?: Array<{ role: "user" | "assistant"; text: string }>
+) => {
   const { data } = await api.post<{
     answer: string;
     toolsCalled: string[];
     provider?: string;
     aiGenerated: boolean;
     fallbackUsed?: boolean;
-  }>("/ai/chat", { message });
+  }>("/ai/chat", { message, history });
   return data;
 };
 

@@ -73,87 +73,138 @@ body {
   min-height: 100dvh;
 }
 
-/* Surface helpers that automatically follow light/dark color-scheme */
-.surface-card {
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  color: var(--text-main);
-}
+/* Component classes placed in @layer components so Tailwind @layer utilities (e.g. lg:hidden, flex) always take precedence */
+@layer components {
+  .surface-card {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+  }
 
-.surface-subtle {
-  background-color: var(--bg-subtle);
-  border: 1px solid var(--border-color);
-}
+  .surface-subtle {
+    background-color: var(--bg-subtle);
+    border: 1px solid var(--border-color);
+  }
 
-.text-muted {
-  color: var(--text-muted);
-}
+  .text-muted {
+    color: var(--text-muted);
+  }
 
-.input-field {
-  width: 100%;
-  border-radius: 0.625rem;
-  border: 1px solid var(--border-color);
-  background-color: var(--bg-surface);
-  color: var(--text-main);
-  padding: 0.55rem 0.75rem;
-  font-size: 0.875rem;
-  line-height: 1.35rem;
-  transition: border-color 150ms ease, box-shadow 150ms ease;
-}
+  .input-field {
+    width: 100%;
+    border-radius: 0.625rem;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-surface);
+    color: var(--text-main);
+    padding: 0.55rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.35rem;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
 
-.input-field:focus {
-  outline: none;
-  border-color: var(--brand-color);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-color) 22%, transparent);
-}
+  .input-field:focus {
+    outline: none;
+    border-color: var(--brand-color);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-color) 22%, transparent);
+  }
 
-.btn-primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  border-radius: 0.625rem;
-  background-color: #0d9488;
-  color: #ffffff;
-  font-weight: 600;
-  font-size: 0.875rem;
-  padding: 0.55rem 1rem;
-  cursor: pointer;
-  transition: background-color 150ms ease, opacity 150ms ease;
-}
+  /* Auto-growing multiline chat textarea following form-fields-automatically-fit-contents */
+  .chat-composer-textarea {
+    field-sizing: content;
+    height: auto;
+    width: 100%;
+    min-block-size: 1.5lh;
+    max-block-size: 7lh;
+    background: transparent;
+    color: var(--text-main);
+    border: 0;
+    padding: 0.25rem 0;
+    font-size: 0.875rem;
+    line-height: 1.45rem;
+    resize: none;
+  }
 
-.btn-primary:hover:not(:disabled) {
-  background-color: #0f766e;
-}
+  .chat-composer-textarea:focus {
+    outline: none;
+  }
 
-.btn-primary:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    border-radius: 0.625rem;
+    background-color: #0d9488;
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 0.875rem;
+    padding: 0.55rem 1rem;
+    cursor: pointer;
+    transition: background-color 150ms ease, opacity 150ms ease;
+  }
 
-.btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  border-radius: 0.625rem;
-  background-color: var(--bg-subtle);
-  color: var(--text-main);
-  border: 1px solid var(--border-color);
-  font-weight: 500;
-  font-size: 0.875rem;
-  padding: 0.5rem 0.9rem;
-  cursor: pointer;
-  transition: opacity 150ms ease, border-color 150ms ease;
-}
+  .btn-primary:hover:not(:disabled) {
+    background-color: #0f766e;
+  }
 
-.btn-secondary:hover:not(:disabled) {
-  border-color: var(--brand-color);
-}
+  .btn-primary:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
 
-.btn-secondary:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    border-radius: 0.625rem;
+    background-color: var(--bg-subtle);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    font-weight: 500;
+    font-size: 0.875rem;
+    padding: 0.5rem 0.9rem;
+    cursor: pointer;
+    transition: opacity 150ms ease, border-color 150ms ease;
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    border-color: var(--brand-color);
+  }
+
+  .btn-secondary:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  /* Sleek borderless circular icon button (Google Gemini style) */
+  .gemini-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 9999px;
+    color: var(--text-main);
+    background-color: transparent;
+    border: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background-color 150ms ease, color 150ms ease, transform 120ms ease;
+  }
+
+  .gemini-icon-btn:hover:not(:disabled) {
+    background-color: var(--bg-subtle);
+  }
+
+  .gemini-icon-btn:active:not(:disabled) {
+    transform: scale(0.95);
+  }
+
+  .gemini-icon-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
 }
 
 /* Native modal <dialog> backdrop styling */

@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
+import dotenv from "dotenv";
 import Employee from "../models/Employee.js";
 import { Department, LeaveType, Holiday } from "../models/Organization.js";
 import { Payslip } from "../models/Payroll.js";
@@ -12,6 +15,21 @@ import {
 } from "./analyticsService.js";
 import { getLocalDateTimeParts, getWorkingDatesInRange, isValidIsoDate } from "./rulesService.js";
 
+const BACKEND_ENV_PATH = fileURLToPath(new URL("../../.env", import.meta.url));
+let lastEnvMtimeMs = 0;
+
+function refreshEnvIfChanged() {
+  try {
+    const stat = fs.statSync(BACKEND_ENV_PATH);
+    if (stat.mtimeMs !== lastEnvMtimeMs) {
+      lastEnvMtimeMs = stat.mtimeMs;
+      dotenv.config({ path: BACKEND_ENV_PATH, override: true });
+    }
+  } catch {
+    // In cloud environments (Railway/Render), env vars come directly from process.env
+  }
+}
+
 /**
  * Rate Limiter Check (~20 AI calls per user per hour)
  */
@@ -25,6 +43,7 @@ export async function checkAiRateLimit(userId) {
 }
 
 function detectAiProvider() {
+  refreshEnvIfChanged();
   const key = (process.env.AI_API_KEY || "").trim();
   if (!key || key === "your-gemini-or-groq-or-openai-api-key") {
     return { provider: "none", key: "" };
@@ -313,11 +332,11 @@ async function buildPolicySystemPrompt(user, settings) {
   const weekendNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const weekends = (settings.weekendDays || [0, 6]).map((d) => weekendNames[d]).join(", ");
 
-  return `You are the official AI HR Assistant for "${settings.companyName}" inside HCM Lite.
+  return `You are the official AI Assistant for "${settings.companyName}" inside HCM Lite.
 Today's date is ${todayStr} (${settings.timezone}).
 Logged-in User: Name="${user.name}", Role="${user.role.toUpperCase()}".
 
-COMPANY POLICY & BUSINESS RULES (Only answer policy questions from these exact rules; if something is not covered here or in tool results, clearly state you do not know):
+COMPANY POLICY & BUSINESS RULES (For company HR policy questions, answer strictly from these exact rules; if a specific company policy is not covered here or in tool results, clearly state you do not know):
 1. Office Hours & Attendance:
    - Office hours: ${settings.officeStartTime} to ${settings.officeEndTime}.
    - Grace period: ${settings.graceMinutes} minutes (Check-in after ${settings.officeStartTime} + ${settings.graceMinutes} min is marked 'late').
@@ -335,18 +354,36 @@ COMPANY POLICY & BUSINESS RULES (Only answer policy questions from these exact r
    - Deductions: Absent days + Unpaid leave days + (0.5 x Half-days)${settings.latePenaltyEnabled ? " + Late penalty (every 3 lates = 0.5 day deduction)" : ""}.
    - Annual Tax Slabs (on Gross x 12): Up to 600k = 0%; 600k-1.2M = 5% of excess; 1.2M-2.4M = 30k + 15% of excess; 2.4M-3.6M = 210k + 25% of excess; Above 3.6M = 510k + 35% of excess. Monthly tax = Annual tax / 12.
    - HR prepares monthly draft; only Admin can finalize and lock payroll.
-4. Strict Role & Privacy Guardrails:
+4. Strict Role, Data & Conversational Guardrails:
    - An Employee can ONLY access their own attendance, leave balance, and own payslip. NEVER disclose any colleague's salary, attendance, or personal data to an Employee—politely refuse!
-   - Always rely ONLY on tool results for live numbers; never invent or guess numbers.
-   - Language: Understand both English and Roman Urdu / Urdu. If the user writes in Roman Urdu (e.g. "meri kitni sick leaves baqi hain?"), reply naturally and helpfully in clear Roman Urdu or matching language! Keep answers concise and helpful.`;
+   - For ANY company/employee/attendance/leave/payroll numbers, ALWAYS invoke the relevant tool first and rely ONLY on tool results; never invent or guess HR numbers.
+   - For casual greetings or general knowledge questions unrelated to confidential HR data, answer naturally, concisely, and helpfully like a modern AI assistant.
+   - Language: Understand both English and Roman Urdu / Urdu. If the user writes in Roman Urdu (e.g. "meri kitni sick leaves baqi hain?"), reply naturally and helpfully in clear Roman Urdu or matching language!`;
+}
+
+function sanitizeChatHistory(history = []) {
+  if (!Array.isArray(history)) return [];
+  const cleaned = [];
+  for (const item of history.slice(-10)) {
+    if (!item || typeof item !== "object") continue;
+    const role = item.role === "assistant" || item.sender === "ai" ? "assistant" : "user";
+    const text = String(item.text || "").trim().slice(0, 1500);
+    if (!text) continue;
+    cleaned.push({ role, text });
+  }
+  return cleaned;
 }
 
 /**
- * Call Google Gemini API with Function Calling (15s timeout)
+ * Call Google Gemini API with Function Calling & Multi-Turn History (15s timeout)
  */
-async function runGeminiChatWithTools({ apiKey, model, systemPrompt, message, user }) {
-  const modelsToTry = [model, "gemini-2.0-flash"].filter((v, i, a) => v && a.indexOf(v) === i);
+async function runGeminiChatWithTools({ apiKey, model, systemPrompt, message, history = [], user }) {
+  const modelsToTry = [model, "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"].filter(
+    (v, i, a) => v && a.indexOf(v) === i
+  );
   let lastErr = null;
+
+  const priorTurns = sanitizeChatHistory(history);
 
   for (const m of modelsToTry) {
     try {
@@ -361,7 +398,24 @@ async function runGeminiChatWithTools({ apiKey, model, systemPrompt, message, us
         },
       ];
 
-      const contents = [{ role: "user", parts: [{ text: message }] }];
+      // Build valid alternating user/model contents array for Gemini
+      const contents = [];
+      for (const turn of priorTurns) {
+        const gRole = turn.role === "assistant" ? "model" : "user";
+        if (contents.length === 0 && gRole === "model") continue;
+        const prev = contents[contents.length - 1];
+        if (prev && prev.role === gRole) {
+          prev.parts[0].text += `\n${turn.text}`;
+        } else {
+          contents.push({ role: gRole, parts: [{ text: turn.text }] });
+        }
+      }
+      if (contents.length > 0 && contents[contents.length - 1].role === "user") {
+        contents[contents.length - 1].parts[0].text += `\n${message}`;
+      } else {
+        contents.push({ role: "user", parts: [{ text: message }] });
+      }
+
       const toolsCalled = [];
 
       for (let step = 0; step < 3; step++) {
@@ -376,7 +430,7 @@ async function runGeminiChatWithTools({ apiKey, model, systemPrompt, message, us
             systemInstruction: { parts: [{ text: systemPrompt }] },
             contents,
             tools: toolsPayload,
-            generationConfig: { temperature: 0.2 },
+            generationConfig: { temperature: 0.25 },
           }),
         });
 
@@ -418,9 +472,17 @@ async function runGeminiChatWithTools({ apiKey, model, systemPrompt, message, us
 }
 
 /**
- * Call OpenAI-Compatible API (Groq or OpenAI) with Tool Calling (15s timeout)
+ * Call OpenAI-Compatible API (Groq or OpenAI) with Tool Calling & Multi-Turn History (15s timeout)
  */
-async function runOpenAiCompatibleChatWithTools({ provider, apiKey, model, systemPrompt, message, user }) {
+async function runOpenAiCompatibleChatWithTools({
+  provider,
+  apiKey,
+  model,
+  systemPrompt,
+  message,
+  history = [],
+  user,
+}) {
   const baseUrl =
     provider === "groq"
       ? "https://api.groq.com/openai/v1/chat/completions"
@@ -435,8 +497,14 @@ async function runOpenAiCompatibleChatWithTools({ provider, apiKey, model, syste
     },
   }));
 
+  const priorMessages = sanitizeChatHistory(history).map((h) => ({
+    role: h.role === "assistant" ? "assistant" : "user",
+    content: h.text,
+  }));
+
   const messages = [
     { role: "system", content: systemPrompt },
+    ...priorMessages,
     { role: "user", content: message },
   ];
   const toolsCalled = [];
@@ -454,7 +522,7 @@ async function runOpenAiCompatibleChatWithTools({ provider, apiKey, model, syste
         messages,
         tools,
         tool_choice: "auto",
-        temperature: 0.2,
+        temperature: 0.25,
       }),
     });
 
@@ -502,7 +570,7 @@ async function runOpenAiCompatibleChatWithTools({ provider, apiKey, model, syste
  * Uses the exact same scoped tools & policy rules so live numbers and RBAC always work!
  */
 async function runDeterministicScopedAssistant(message, user, settings) {
-  const q = String(message || "").toLowerCase();
+  const q = String(message || "").toLowerCase().trim();
   const toolsCalled = [];
 
   // 1. Check colleague salary privacy violation for Employee
@@ -648,16 +716,24 @@ async function runDeterministicScopedAssistant(message, user, settings) {
     };
   }
 
+  // 9. Friendly greetings
+  if (/^(hi|hello|hey|salam|assalam|aoa|kese ho|kaise ho|good morning|good evening)\b/i.test(q)) {
+    return {
+      answer: `Walaikum Assalam ${user.name}! Main ${settings.companyName} ka HCM Lite AI Assistant hoon (${user.role.toUpperCase()} access). Aap mujh se live attendance, leave balances, company rules, ya payroll ke baare mein English ya Roman Urdu mein pooch sakte hain!`,
+      toolsCalled,
+    };
+  }
+
   return {
-    answer: `Hello ${user.name}! Ask me about attendance rates, leave balances, company policies (office hours, leave quotas, tax slabs),${user.role !== "employee" ? " department headcount, late-comers, or payroll summaries" : " or your payslip"}. (Tip: Add AI_API_KEY in backend .env to enable full LLM conversational reasoning!)`,
+    answer: `Hello ${user.name}! Live HR tools (attendance, leave balances, policies, headcount, late-comers, payroll) abhi active hain. Open-ended general questions ke liye \`backend/.env\` mein \`AI_API_KEY=\` ke aagay apni Gemini/Groq key paste kar ke Ctrl+S dabayein — server bina restart kiye foran key pick kar lega!`,
     toolsCalled,
   };
 }
 
 /**
- * Main Entry: Chat with Tools & Policy Q&A
+ * Main Entry: Chat with Tools, Multi-Turn History & Policy Q&A
  */
-export async function handleAiChat({ message, user }) {
+export async function handleAiChat({ message, history = [], user }) {
   const startMs = Date.now();
   const rate = await checkAiRateLimit(user._id);
   if (!rate.allowed) {
@@ -711,6 +787,7 @@ export async function handleAiChat({ message, user }) {
             model: cfg.model,
             systemPrompt,
             message,
+            history,
             user,
           })
         : await runOpenAiCompatibleChatWithTools({
@@ -719,6 +796,7 @@ export async function handleAiChat({ message, user }) {
             model: cfg.model,
             systemPrompt,
             message,
+            history,
             user,
           });
 

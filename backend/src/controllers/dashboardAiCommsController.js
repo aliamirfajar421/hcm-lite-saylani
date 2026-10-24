@@ -172,16 +172,17 @@ export const getDashboardData = async (req, res) => {
 };
 
 /**
- * #19 & #22 AI Assistant Chat (All roles, scoped)
+ * #19 & #22 AI Assistant Chat (All roles, scoped, multi-turn history supported)
  */
 export const aiChat = async (req, res) => {
   try {
-    const { message } = req.body;
+    const { message, history } = req.body;
     if (!message || !String(message).trim()) {
       return res.status(400).json({ message: "Message is required" });
     }
     const result = await handleAiChat({
       message: String(message).trim(),
+      history: Array.isArray(history) ? history : [],
       user: req.user,
     });
     if (result.rateLimited) {
