@@ -364,21 +364,21 @@ export default function AppShell({
             className={`rounded-2xl surface-subtle p-2.5 ${
               sidebarCollapsed ? "lg:flex lg:justify-center lg:p-1.5" : ""
             }`}
-            title={sidebarCollapsed ? `${user.name} (${user.role.toUpperCase()})` : undefined}
+            title={sidebarCollapsed ? `${user?.name || user?.email || "User"} (${(user?.role || "").toUpperCase()})` : undefined}
           >
             <div className={`hidden ${sidebarCollapsed ? "lg:flex" : ""} h-8 w-8 items-center justify-center rounded-full bg-teal-600 text-xs font-bold text-white`}>
-              {user.name.charAt(0).toUpperCase()}
+              {(user?.name || user?.email || "U").charAt(0).toUpperCase()}
             </div>
             <div className={sidebarCollapsed ? "lg:hidden" : ""}>
               <div className="flex items-center justify-between gap-2">
-                <p className="truncate text-xs font-bold">{user.name}</p>
+                <p className="truncate text-xs font-bold">{user?.name || user?.email || "User"}</p>
                 <span
                   className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${roleBadgeClass}`}
                 >
-                  {user.role}
+                  {user?.role}
                 </span>
               </div>
-              <p className="mt-0.5 truncate text-[11px] text-muted">{user.email}</p>
+              <p className="mt-0.5 truncate text-[11px] text-muted">{user?.email || ""}</p>
             </div>
           </div>
 
@@ -549,7 +549,7 @@ export default function AppShell({
         open={aiOpen}
         onClose={() => setAiOpen(false)}
         role={user.role}
-        userName={user.name}
+        userName={user?.name || user?.email || "User"}
         userId={user.id}
       />
     </div>
