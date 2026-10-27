@@ -115,6 +115,57 @@ export default function AiAssistantDrawer({
   const [editMsgDraft, setEditMsgDraft] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  // Voice Recognition (Speech-to-Text) & Voice Synthesis (Text-to-Speech)
+  const [isListening, setIsListening] = useState(false);
+  const [voiceOutputEnabled, setVoiceOutputEnabled] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  const speakText = (text: string) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const clean = text
+      .replace(/[*#`_~>\[\]]/g, "")
+      .replace(/\(.*?\)/g, "")
+      .slice(0, 320);
+    const utterance = new SpeechSynthesisUtterance(clean);
+    utterance.rate = 1.05;
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const stopSpeaking = () => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+  };
+
+  const startVoiceInput = () => {
+    if (typeof window === "undefined") return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRec) {
+      alert("Voice recognition is not supported in this browser. Please use Google Chrome or Microsoft Edge.");
+      return;
+    }
+    const recognition = new SpeechRec();
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    setIsListening(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setInput((prev) => (prev ? `${prev} ${transcript}` : transcript));
+      setIsListening(false);
+    };
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+    recognition.start();
+  };
+
   // Load saved threads for this user on mount / user switch
   useEffect(() => {
     try {
@@ -297,6 +348,9 @@ export default function AiAssistantDrawer({
 
     try {
       const res = await aiChatApi(trimmed, historyPayload);
+      if (voiceOutputEnabled && res.answer) {
+        speakText(res.answer);
+      }
       const aiMsg: ChatMessage = {
         id: `a-${Date.now()}`,
         sender: "ai",
@@ -694,8 +748,35 @@ export default function AiAssistantDrawer({
               </div>
             </div>
 
-            {/* Header Actions: New Chat, Expand/Dock Studio, Close */}
+            {/* Header Actions: Voice Output, New Chat, Expand/Dock Studio, Close */}
             <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  if (isSpeaking) {
+                    stopSpeaking();
+                  } else {
+                    setVoiceOutputEnabled((v) => !v);
+                  }
+                }}
+                title={
+                  isSpeaking
+                    ? "Stop speaking"
+                    : voiceOutputEnabled
+                    ? "Voice output enabled (Click to mute)"
+                    : "Enable AI voice responses"
+                }
+                className={`gemini-icon-btn ${
+                  isSpeaking
+                    ? "bg-rose-500/20 text-rose-500 animate-pulse ring-2 ring-rose-500/30"
+                    : voiceOutputEnabled
+                    ? "bg-emerald-500/20 text-emerald-500"
+                    : "text-muted hover:text-foreground"
+                }`}
+              >
+                <span>{isSpeaking ? "⏹" : voiceOutputEnabled ? "🔊" : "🔇"}</span>
+              </button>
+
               <button
                 type="button"
                 onClick={handleNewChat}
@@ -887,6 +968,14 @@ export default function AiAssistantDrawer({
                           <div className="flex items-center gap-1 text-[11px] text-muted">
                             <button
                               type="button"
+                              onClick={() => speakText(m.text)}
+                              title="Listen to response (Text to speech)"
+                              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 hover:bg-emerald-500/10 hover:text-emerald-500 transition-colors cursor-pointer"
+                            >
+                              <span>🔊 Speak</span>
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => void handleCopyText(m.id, m.text)}
                               title="Copy response"
                               className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 hover:bg-[var(--bg-subtle)] hover:text-[var(--text-main)] transition-colors cursor-pointer"
@@ -984,6 +1073,20 @@ export default function AiAssistantDrawer({
                   placeholder="Ask HCM Lite AI… (Enter to send, Shift+Enter for new line)"
                   className="chat-composer-textarea flex-1"
                 />
+
+                <button
+                  type="button"
+                  onClick={isListening ? () => setIsListening(false) : startVoiceInput}
+                  title={isListening ? "Listening... (Click to stop)" : "Speak via Microphone (Voice Recognition)"}
+                  aria-label="Voice input microphone"
+                  className={`mb-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-all cursor-pointer ${
+                    isListening
+                      ? "bg-rose-600 text-white animate-pulse ring-4 ring-rose-500/30 scale-110"
+                      : "hover:bg-[var(--bg-surface)] text-muted hover:text-foreground"
+                  }`}
+                >
+                  <span className="text-sm">{isListening ? "🔴" : "🎙"}</span>
+                </button>
 
                 <button
                   type="submit"

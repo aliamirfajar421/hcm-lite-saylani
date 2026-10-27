@@ -6,12 +6,14 @@ import { useAuth } from "@/context/AuthContext";
 import { loginApi } from "@/api/hcm";
 import api from "@/lib/api";
 import { triggerConfetti } from "@/lib/confetti";
+import PitchDeckModal from "./PitchDeckModal";
 
 export default function JudgeRoleSwitcher() {
   const { user } = useAuth();
   const router = useRouter();
   const [switching, setSwitching] = useState<string | null>(null);
   const [minimized, setMinimized] = useState(false);
+  const [pitchOpen, setPitchOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -162,28 +164,44 @@ export default function JudgeRoleSwitcher() {
               </button>
             </div>
 
-            <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
+            <div className="flex flex-wrap items-center justify-between gap-1.5 pt-1 border-t border-slate-800/80">
               <button
                 type="button"
                 disabled={switching !== null}
                 onClick={handleResetDemoData}
-                className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-amber-600/40 to-yellow-600/40 border border-amber-500/40 px-2.5 py-1 text-[10px] font-bold text-amber-200 hover:bg-amber-600/60 transition"
+                className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-amber-600/40 to-yellow-600/40 border border-amber-500/40 px-2 py-1 text-[10px] font-bold text-amber-200 hover:bg-amber-600/60 transition"
               >
                 <span>⚡</span>
-                <span>{switching === "reset" ? "Seeding..." : "Re-seed Demo Data"}</span>
+                <span>{switching === "reset" ? "Seeding..." : "Re-seed"}</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => triggerConfetti(2500)}
-                className="text-[10px] font-bold text-slate-400 hover:text-white transition"
-              >
-                🎉 Confetti Burst
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setPitchOpen(true)}
+                  className="rounded-lg bg-teal-600/30 border border-teal-500/40 px-2 py-1 text-[10px] font-bold text-teal-300 hover:bg-teal-600/50 transition flex items-center gap-1"
+                >
+                  <span>📊</span>
+                  <span>Pitch Deck</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => triggerConfetti(2500)}
+                  className="text-[10px] font-bold text-slate-400 hover:text-white transition px-1"
+                  title="Celebration confetti"
+                >
+                  🎉
+                </button>
+              </div>
             </div>
           </div>
         )}
       </aside>
+
+      {/* Official Pitch Deck Modal */}
+      <PitchDeckModal open={pitchOpen} onClose={() => setPitchOpen(false)} />
     </>
   );
 }
+

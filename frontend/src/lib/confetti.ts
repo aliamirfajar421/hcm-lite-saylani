@@ -100,3 +100,4 @@ export function triggerConfetti(durationMs: number = 2500) {
 
   animId = requestAnimationFrame(render);
 }
+

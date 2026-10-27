@@ -27,6 +27,7 @@ import {
 import AiBadge from "@/components/AiBadge";
 import CameraCheckInModal from "@/components/CameraCheckInModal";
 import ExecutiveReportModal from "@/components/ExecutiveReportModal";
+import DigitalEmployeeBadge from "@/components/DigitalEmployeeBadge";
 import { triggerConfetti } from "@/lib/confetti";
 
 export default function DashboardPage() {
@@ -52,6 +53,7 @@ export default function DashboardPage() {
   const [checkingInOut, setCheckingInOut] = useState(false);
   const [cameraModalOpen, setCameraModalOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [badgeOpen, setBadgeOpen] = useState(false);
 
   // Pending Self-Registrations state (Admin & HR)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -328,6 +330,13 @@ export default function DashboardPage() {
                 >
                   ✦ Smart AI Leave
                 </Link>
+                <button
+                  type="button"
+                  onClick={() => setBadgeOpen(true)}
+                  className="rounded-xl border border-teal-400/30 bg-teal-600/20 px-3.5 py-2.5 text-xs font-bold text-teal-200 hover:bg-teal-600/30 transition shadow-sm flex items-center gap-1.5"
+                >
+                  <span>🪪</span> Smart ID Badge
+                </button>
               </div>
             </div>
           </div>
@@ -879,6 +888,74 @@ export default function DashboardPage() {
               </div>
             </div>
 
+            {/* Gamification: Attendance Streak & Kudos Recognition */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Flame Streak Card */}
+              <div className="surface-card rounded-2xl border border-amber-500/30 p-5 space-y-3 relative overflow-hidden bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-transparent shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-500/20 text-2xl animate-bounce">
+                      🔥
+                    </span>
+                    <div>
+                      <h3 className="text-sm font-black text-amber-600 dark:text-amber-400">
+                        18-Day On-Time Streak!
+                      </h3>
+                      <p className="text-[11px] text-muted">Rank: Punctuality Champion 🌟</p>
+                    </div>
+                  </div>
+                  <span className="rounded-full bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-black uppercase text-amber-600 dark:text-amber-400">
+                    +250 XP
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[11px] text-muted font-semibold">
+                    <span>Progress to Monthly 20-Day Bonus Shield</span>
+                    <span>18 / 20 Days (90%)</span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full w-[90%]" />
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted">
+                  Keep checking in before 09:15 AM to unlock the Saylani Tech Annual Punctuality Reward!
+                </p>
+              </div>
+
+              {/* Peer Kudos Recognition */}
+              <div className="surface-card rounded-2xl border border-teal-500/30 p-5 space-y-3 bg-gradient-to-r from-teal-500/10 via-cyan-500/5 to-transparent shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-teal-500/20 text-2xl">
+                      ⭐
+                    </span>
+                    <div>
+                      <h3 className="text-sm font-black text-teal-600 dark:text-teal-400">
+                        Workforce Kudos & Recognition
+                      </h3>
+                      <p className="text-[11px] text-muted">October 2026 Peer Spotlight</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerConfetti(2500);
+                      setToast("⭐ Kudos sent to teammates!");
+                    }}
+                    className="rounded-lg bg-teal-600 px-3 py-1 text-xs font-bold text-white hover:bg-teal-500 transition shadow-sm"
+                  >
+                    + Send Kudos
+                  </button>
+                </div>
+                <div className="surface-subtle rounded-xl p-3 text-xs space-y-1 border border-default">
+                  <p className="font-bold text-foreground">
+                    &quot;Great job on launching the biometric attendance module ahead of time!&quot;
+                  </p>
+                  <p className="text-[10px] text-muted">From HR Fatima Khan • 2 hours ago</p>
+                </div>
+              </div>
+            </div>
+
             {/* KPIs */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="surface-card rounded-xl border-t-4 border-t-teal-500 p-4">
@@ -1039,6 +1116,21 @@ export default function DashboardPage() {
         dashboardData={data}
         companyName={data?.companyName || "Saylani Tech"}
         currency={currency}
+      />
+
+      <DigitalEmployeeBadge
+        open={badgeOpen}
+        onClose={() => setBadgeOpen(false)}
+        employeeData={{
+          fullName: user?.name,
+          email: user?.email,
+          employeeCode: "EMP001",
+          designation: "Senior Software Engineer",
+          department: "Engineering",
+          bloodGroup: "O+",
+          joiningDate: "2026-01-15",
+        }}
+        companyName={data?.companyName || "Saylani Tech"}
       />
     </AppShell>
   );
