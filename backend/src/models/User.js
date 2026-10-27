@@ -65,6 +65,10 @@ const userSchema = new mongoose.Schema(
 
 userSchema.pre("save", async function () {
   if (!this.isModified("password")) return;
+  // If the password is already a valid bcrypt hash, do not double-hash
+  if (typeof this.password === "string" && /^\$2[aby]\$\d{2}\$[./0-9A-Za-z]{53}$/.test(this.password)) {
+    return;
+  }
   this.password = await bcrypt.hash(this.password, 12);
 });
 

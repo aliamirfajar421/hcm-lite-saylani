@@ -105,10 +105,10 @@ export async function seedRichMockData() {
     if (!exists) await Holiday.create(h);
   }
 
-  // 6. Users & Employees Dataset
-  const defaultPass = await bcrypt.hash("Emp@123456", 12);
-  const adminPass = await bcrypt.hash("Admin@123456", 12);
-  const hrPass = await bcrypt.hash("Hr@123456", 12);
+  // 6. Users & Employees Dataset (Plaintext so User.js pre("save") hashes it cleanly once)
+  const defaultPass = "Emp@123456";
+  const adminPass = "Admin@123456";
+  const hrPass = "Hr@123456";
 
   const employeesSeed = [
     {
