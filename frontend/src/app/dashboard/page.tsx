@@ -300,7 +300,7 @@ export default function DashboardPage() {
                   onClick={() => setCameraModalOpen(true)}
                   className="rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 px-4 py-2.5 text-xs font-black transition shadow-lg shadow-emerald-500/20 flex items-center gap-1.5"
                 >
-                  <span>📸</span> Fast Biometric Check-In
+                  <span>📸</span> {data?.todayAttendance?.checkInAt ? "Biometric Check-In (Recorded ✓)" : "Fast Biometric Check-In"}
                 </button>
                 <Link
                   href="/leaves"
@@ -833,14 +833,24 @@ export default function DashboardPage() {
                     </button>
                   </>
                 ) : !data.todayAttendance.checkOutAt ? (
-                  <button
-                    type="button"
-                    disabled={checkingInOut}
-                    onClick={handleWebCheckOut}
-                    className="btn-primary"
-                  >
-                    ⏹ Web Check-Out
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={checkingInOut}
+                      onClick={handleWebCheckOut}
+                      className="btn-primary"
+                    >
+                      ⏹ Web Check-Out
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCameraModalOpen(true)}
+                      className="btn-secondary text-xs"
+                      title="Test camera scan again"
+                    >
+                      📷 Test Face Scan Again
+                    </button>
+                  </div>
                 ) : (
                   <span className="rounded-xl bg-emerald-500/15 px-3 py-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
                     ✓ Day Completed ({data.todayAttendance.workedHours}h)

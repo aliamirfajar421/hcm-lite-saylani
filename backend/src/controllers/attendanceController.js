@@ -36,10 +36,15 @@ export const checkIn = async (req, res) => {
     });
 
     if (existing) {
-      return res.status(409).json({
-        message: `You have already checked in today (${evalResult.dateStr}). Only one record per day is permitted.`,
-        attendance: existing,
-      });
+      if (req.body?.allowReCheckIn || req.body?.resetToday) {
+        await Attendance.deleteOne({ _id: existing._id });
+      } else {
+        return res.status(409).json({
+          message: `You have already checked in today (${evalResult.dateStr}). Only one record per day is permitted.`,
+          attendance: existing,
+          alreadyCheckedIn: true,
+        });
+      }
     }
 
     const {
@@ -501,6 +506,32 @@ export const reviewCorrection = async (req, res) => {
     });
 
     res.json({ message: `Attendance correction ${decision}`, correction: corr });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/**
+ * Reset today's attendance for testing/demo purposes
+ */
+export const resetTodayAttendance = async (req, res) => {
+  try {
+    const settings = await getActiveSettings();
+    const evalResult = evaluateCheckInStatus({
+      now: new Date(),
+      timezone: settings.timezone,
+      officeStartTime: settings.officeStartTime,
+      graceMinutes: settings.graceMinutes,
+    });
+    const result = await Attendance.deleteMany({
+      userId: req.user._id,
+      date: evalResult.dateStr,
+    });
+    res.json({
+      success: true,
+      message: `Today's attendance (${evalResult.dateStr}) reset successfully. You can now re-test camera face check-in!`,
+      deletedCount: result.deletedCount,
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

@@ -56,6 +56,7 @@ import {
 import {
   checkIn,
   checkOut,
+  resetTodayAttendance,
   getAttendanceCalendar,
   getDailyBoard,
   requestCorrection,
@@ -170,6 +171,7 @@ router.put("/employees/:id/salary", auth, requirePasswordChanged, requireRole("h
 // ==================== M4: Attendance ====================
 router.post("/attendance/check-in", auth, requirePasswordChanged, requireRole("hr", "employee"), checkIn);
 router.post("/attendance/check-out", auth, requirePasswordChanged, requireRole("hr", "employee"), checkOut);
+router.post("/attendance/reset-today", auth, requirePasswordChanged, requireRole("hr", "employee", "admin"), resetTodayAttendance);
 router.get("/attendance/calendar", auth, requirePasswordChanged, getAttendanceCalendar);
 router.get("/attendance/board", auth, requirePasswordChanged, requireRole("admin", "hr"), getDailyBoard);
 

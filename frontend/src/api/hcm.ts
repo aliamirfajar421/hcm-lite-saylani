@@ -491,6 +491,11 @@ export const checkInApi = async (payload?: Record<string, unknown>) => {
   return data;
 };
 
+export const resetTodayAttendanceApi = async () => {
+  const { data } = await api.post("/attendance/reset-today");
+  return data;
+};
+
 export const checkOutApi = async () => {
   const { data } = await api.post("/attendance/check-out");
   return data;

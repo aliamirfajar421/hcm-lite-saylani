@@ -215,7 +215,7 @@ export default function CameraCheckInModal({
     }
   };
 
-  const handleCameraCheckIn = async (overrideRemote?: boolean) => {
+  const handleCameraCheckIn = async (overrideRemote?: boolean, allowReCheckIn?: boolean) => {
     setErrorMsg("");
     setSubmitting(true);
     const isRemote = overrideRemote !== undefined ? overrideRemote : remoteMode;
@@ -231,6 +231,7 @@ export default function CameraCheckInModal({
         faceDescriptor: descriptor,
         remoteMode: isRemote,
         bypassGeofence: isRemote,
+        allowReCheckIn: Boolean(allowReCheckIn),
       } as any);
       onSuccess(res.message);
       onClose();
@@ -344,7 +345,21 @@ export default function CameraCheckInModal({
         {errorMsg && (
           <div className="space-y-2 rounded-lg bg-rose-500/15 p-3 text-xs text-rose-700 dark:text-rose-300">
             <p className="font-semibold">{errorMsg}</p>
-            {errorMsg.toLowerCase().includes("geofence") && (
+            {errorMsg.toLowerCase().includes("already checked in") ? (
+              <div className="pt-1 flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600/25 px-2.5 py-1 text-emerald-800 dark:text-emerald-200 font-extrabold text-xs">
+                  ✓ Attendance Already Recorded (Present)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleCameraCheckIn(undefined, true)}
+                  disabled={submitting}
+                  className="rounded-lg bg-amber-600 px-3 py-1.5 font-bold text-white hover:bg-amber-700 shadow-sm transition"
+                >
+                  🔄 Reset & Test Scan Again (Demo Mode)
+                </button>
+              </div>
+            ) : errorMsg.toLowerCase().includes("geofence") ? (
               <div className="pt-1 flex flex-wrap items-center gap-2">
                 <button
                   type="button"
@@ -355,7 +370,7 @@ export default function CameraCheckInModal({
                   🏠 Check-In as Remote / WFH (Approved Off-site)
                 </button>
               </div>
-            )}
+            ) : null}
             {onFallbackCorrection && (
               <div>
                 <button
