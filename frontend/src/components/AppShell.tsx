@@ -12,6 +12,8 @@ import {
 } from "@/api/hcm";
 import ThemeToggle from "./ThemeToggle";
 import AiAssistantDrawer from "./AiAssistantDrawer";
+import JudgeRoleSwitcher from "./JudgeRoleSwitcher";
+import WhatsAppAlertSimulator from "./WhatsAppAlertSimulator";
 
 interface NavItem {
   href: string;
@@ -145,6 +147,7 @@ export default function AppShell({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [whatsAppOpen, setWhatsAppOpen] = useState(false);
   const [notifications, setNotifications] = useState<
     Array<{
       _id: string;
@@ -532,6 +535,19 @@ export default function AppShell({
                       ))
                     )}
                   </div>
+                  <div className="border-t border-[var(--border-color)] p-2 bg-[var(--bg-subtle)] text-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNotifOpen(false);
+                        setWhatsAppOpen(true);
+                      }}
+                      className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center justify-center gap-1.5 w-full"
+                    >
+                      <span>📱</span>
+                      <span>Preview Simulated WhatsApp Alerts</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -543,6 +559,16 @@ export default function AppShell({
         {/* Page Body */}
         <main className="mx-auto w-full max-w-7xl flex-1 p-4 sm:p-6">{children}</main>
       </div>
+
+      {/* Judge & Presentation Floating Fast-Switcher */}
+      <JudgeRoleSwitcher />
+
+      {/* Simulated WhatsApp Omnichannel Alert Modal */}
+      <WhatsAppAlertSimulator
+        open={whatsAppOpen}
+        onClose={() => setWhatsAppOpen(false)}
+        userName={user?.name || user?.email || "Team Member"}
+      />
 
       {/* Global Gemini/ChatGPT-Style AI Assistant Studio */}
       <AiAssistantDrawer

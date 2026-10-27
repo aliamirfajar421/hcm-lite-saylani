@@ -14,6 +14,8 @@ import {
 } from "@/api/hcm";
 import { getApiErrorMessage } from "@/lib/api";
 import { KpiCard, StatusPill } from "@/components/Charts";
+import PakistaniTaxCalculator from "@/components/PakistaniTaxCalculator";
+import { triggerConfetti } from "@/lib/confetti";
 
 export default function PayrollPage() {
   const { user, currency } = useAuth();
@@ -175,6 +177,7 @@ export default function PayrollPage() {
                     setError("");
                     try {
                       const res = await finalizePayrollRunApi(selectedRun._id);
+                      triggerConfetti(3000);
                       setToast(res.message);
                       await loadData();
                     } catch (err) {
@@ -224,6 +227,9 @@ export default function PayrollPage() {
             )}
           </div>
         )}
+
+        {/* Pakistani FBR Tax Slab & Salary Breakdown Calculator */}
+        <PakistaniTaxCalculator />
 
         {/* Payslips Table with Official PDF Download (#17) */}
         <div className="table-wrapper">

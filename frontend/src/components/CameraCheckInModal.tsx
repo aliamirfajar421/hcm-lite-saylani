@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import ModalDialog from "./ModalDialog";
 import { checkInApi, enrollFaceApi } from "@/api/hcm";
 import { getApiErrorMessage } from "@/lib/api";
+import { triggerConfetti } from "@/lib/confetti";
 
 interface CameraCheckInModalProps {
   open: boolean;
@@ -234,6 +235,7 @@ export default function CameraCheckInModal({
         allowReCheckIn: Boolean(allowReCheckIn),
       } as any);
       onSuccess(res.message);
+      triggerConfetti(3000);
       onClose();
     } catch (err) {
       setErrorMsg(getApiErrorMessage(err, "Camera check-in rejected by server"));

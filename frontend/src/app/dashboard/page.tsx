@@ -26,6 +26,8 @@ import {
 } from "@/components/Charts";
 import AiBadge from "@/components/AiBadge";
 import CameraCheckInModal from "@/components/CameraCheckInModal";
+import ExecutiveReportModal from "@/components/ExecutiveReportModal";
+import { triggerConfetti } from "@/lib/confetti";
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -49,6 +51,7 @@ export default function DashboardPage() {
   // Employee Check-in state
   const [checkingInOut, setCheckingInOut] = useState(false);
   const [cameraModalOpen, setCameraModalOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   // Pending Self-Registrations state (Admin & HR)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -70,6 +73,7 @@ export default function DashboardPage() {
     setApprovingId(id);
     try {
       const res = await approveUserRegistrationApi(id);
+      triggerConfetti(2500);
       setToast(res.message);
       await loadPending();
       await loadDashboard();
@@ -208,6 +212,14 @@ export default function DashboardPage() {
                   <span>✦</span>
                   <span>{summarizing ? "Analyzing KPIs..." : "AI Executive Brief"}</span>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setReportOpen(true)}
+                  className="rounded-xl border border-emerald-400/30 bg-emerald-600/20 px-3.5 py-2.5 text-xs font-bold text-emerald-200 hover:bg-emerald-600/30 transition shadow-sm flex items-center gap-1.5"
+                >
+                  <span>📄</span>
+                  <span>Executive Report</span>
+                </button>
                 <Link
                   href="/organization"
                   className="rounded-xl border border-purple-400/30 bg-purple-600/20 px-3.5 py-2.5 text-xs font-bold text-purple-200 hover:bg-purple-600/30 transition shadow-sm"
@@ -255,6 +267,14 @@ export default function DashboardPage() {
                 >
                   <span>✦</span>
                   <span>{summarizing ? "Analyzing HR KPIs..." : "AI HR Summary"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReportOpen(true)}
+                  className="rounded-xl border border-emerald-400/30 bg-emerald-600/20 px-3.5 py-2.5 text-xs font-bold text-emerald-200 hover:bg-emerald-600/30 transition shadow-sm flex items-center gap-1.5"
+                >
+                  <span>📄</span>
+                  <span>Executive Report</span>
                 </button>
                 <Link
                   href="/employees"
@@ -1011,6 +1031,14 @@ export default function DashboardPage() {
           void loadDashboard();
         }}
         onFallbackCorrection={() => router.push("/attendance")}
+      />
+
+      <ExecutiveReportModal
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        dashboardData={data}
+        companyName={data?.companyName || "Saylani Tech"}
+        currency={currency}
       />
     </AppShell>
   );

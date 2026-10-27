@@ -30,6 +30,7 @@ import {
 import { getApiErrorMessage } from "@/lib/api";
 import { StatusPill } from "@/components/Charts";
 import ModalDialog from "@/components/ModalDialog";
+import OrgHierarchyChart from "@/components/OrgHierarchyChart";
 
 const WEEK_DAYS = [
   { day: 0, label: "Sun" },
@@ -46,7 +47,7 @@ export default function OrganizationPage() {
   const isAdmin = user?.role === "admin";
 
   const [tab, setTab] = useState<
-    "settings" | "departments" | "designations" | "leaves" | "holidays" | "users"
+    "settings" | "chart" | "departments" | "designations" | "leaves" | "holidays" | "users"
   >("settings");
 
   const [settings, setSettings] = useState<CompanySettings | null>(null);
@@ -183,6 +184,7 @@ export default function OrganizationPage() {
         <div className="flex flex-wrap gap-2 border-b border-[var(--border-color)] pb-3">
           {[
             { id: "settings", label: "Company Rules & Geofence" },
+            { id: "chart", label: "🌳 Visual Org Hierarchy" },
             { id: "departments", label: `Departments (${departments.length})` },
             { id: "designations", label: `Designations (${designations.length})` },
             { id: "leaves", label: `Leave Quotas (${leaveTypes.length})` },
@@ -460,6 +462,15 @@ export default function OrganizationPage() {
               </div>
             )}
           </form>
+        )}
+
+        {/* TAB: VISUAL ORG HIERARCHY TREE */}
+        {tab === "chart" && (
+          <OrgHierarchyChart
+            companyName={settings?.companyName || "Saylani Tech"}
+            departments={departments}
+            designations={designations}
+          />
         )}
 
         {/* TAB 2: DEPARTMENTS */}
