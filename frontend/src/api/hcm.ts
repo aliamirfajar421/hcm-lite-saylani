@@ -164,6 +164,15 @@ export const firstRunSetupApi = async (payload: Record<string, unknown>) => {
   return data;
 };
 
+export const seedDemoAccountsApi = async () => {
+  const { data } = await api.post<{
+    success: boolean;
+    message: string;
+    accounts: Array<{ role: string; email: string; password: string; name: string }>;
+  }>("/auth/seed-demo");
+  return data;
+};
+
 export const loginApi = async (payload: { email: string; password: string }) => {
   const { data } = await api.post<{
     accessToken: string;

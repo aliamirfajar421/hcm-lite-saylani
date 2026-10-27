@@ -1,6 +1,6 @@
 import User from "../models/User.js";
 import Employee from "../models/Employee.js";
-import { CompanySettings, Department, LeaveType } from "../models/Organization.js";
+import { CompanySettings, Department, LeaveType, Designation } from "../models/Organization.js";
 import { Notification } from "../models/CommsAudit.js";
 import jwt from "jsonwebtoken";
 import { generateAccessToken, generateRefreshToken } from "../utils/token.js";
@@ -34,6 +34,151 @@ export async function ensureEnvBootstrapIfConfigured() {
     summary: `Initialized ${companyName} and Admin from environment variables`,
   });
 }
+
+export async function internalSeedDemoAccounts() {
+  // 1. Ensure company settings
+  let settings = await CompanySettings.findOne();
+  if (!settings) {
+    settings = await CompanySettings.create({
+      companyName: "Saylani Tech",
+      tagline: "AI-assisted Human Capital Management",
+      currency: "PKR",
+      officeStartTime: "09:00",
+      officeEndTime: "18:00",
+      graceMinutes: 15,
+      halfDayHours: 5,
+      weekendDays: [0, 6],
+      officeLocation: {
+        lat: 24.8607,
+        lng: 67.0011,
+        address: "Zaitoon Ashraf IT Park, Karachi",
+        radiusMeters: 200,
+      },
+      latePenaltyEnabled: true,
+    });
+  }
+
+  // 2. Ensure Departments
+  let deptEng = await Department.findOne({ code: "ENG" });
+  if (!deptEng) {
+    deptEng = await Department.create({
+      name: "Engineering",
+      code: "ENG",
+      description: "Software and Product Engineering",
+    });
+  }
+  let deptHr = await Department.findOne({ code: "HR" });
+  if (!deptHr) {
+    deptHr = await Department.create({
+      name: "Human Resources",
+      code: "HR",
+      description: "People Operations and Talent",
+    });
+  }
+
+  let desDev = await Designation.findOne({ title: "Software Engineer" });
+  if (!desDev) {
+    desDev = await Designation.create({
+      title: "Software Engineer",
+      departmentId: deptEng._id,
+      level: "Mid",
+    }).catch(() => null);
+  }
+
+  // 3. Ensure Leave Types
+  const leaveDefaults = [
+    { name: "Casual Leave", code: "casual", yearlyQuota: 10, isPaid: true },
+    { name: "Sick Leave", code: "sick", yearlyQuota: 8, isPaid: true },
+    { name: "Annual Leave", code: "annual", yearlyQuota: 14, isPaid: true },
+  ];
+  for (const lt of leaveDefaults) {
+    const exists = await LeaveType.findOne({ code: lt.code });
+    if (!exists) await LeaveType.create(lt).catch(() => null);
+  }
+
+  // 4. Admin User
+  let admin = await User.findOne({ email: "admin@saylani.com" });
+  if (!admin) {
+    admin = await User.create({
+      name: "System Admin",
+      email: "admin@saylani.com",
+      password: "Admin@123456",
+      role: "admin",
+      mustChangePassword: false,
+    });
+  }
+
+  // 5. HR User
+  let hr = await User.findOne({ email: "hr@saylani.com" });
+  if (!hr) {
+    hr = await User.create({
+      name: "Fatima Khan",
+      email: "hr@saylani.com",
+      password: "Hr@123456",
+      role: "hr",
+      mustChangePassword: false,
+    });
+  }
+
+  // 6. Employee User & Profile
+  let empUser = await User.findOne({ email: "employee@saylani.com" });
+  if (!empUser) {
+    empUser = await User.create({
+      name: "Muhammad Ali",
+      email: "employee@saylani.com",
+      password: "Emp@123456",
+      role: "employee",
+      mustChangePassword: false,
+    });
+  }
+
+  let empProfile = await Employee.findOne({ email: "employee@saylani.com" });
+  if (!empProfile) {
+    empProfile = await Employee.create({
+      userId: empUser._id,
+      employeeCode: "EMP001",
+      fullName: "Muhammad Ali",
+      email: "employee@saylani.com",
+      phone: "+92 300 1234567",
+      address: "Zaitoon Ashraf IT Park, Karachi",
+      gender: "male",
+      departmentId: deptEng._id,
+      designationId: desDev?._id || null,
+      joiningDate: "2026-01-15",
+      employmentStatus: "active",
+      salaryStructure: {
+        basic: 100000,
+        hraPercent: 40,
+        medicalPercent: 10,
+        hra: 40000,
+        medical: 10000,
+        otherAllowances: 0,
+        gross: 150000,
+      },
+    });
+    empUser.employeeId = empProfile._id;
+    await empUser.save();
+  }
+
+  return { settings, admin, hr, empUser, empProfile };
+}
+
+export const seedDemoAccounts = async (_req, res) => {
+  try {
+    await internalSeedDemoAccounts();
+    res.json({
+      success: true,
+      message: "Demo accounts ready for Admin, HR, and Employee",
+      accounts: [
+        { role: "admin", email: "admin@saylani.com", password: "Admin@123456", name: "System Admin" },
+        { role: "hr", email: "hr@saylani.com", password: "Hr@123456", name: "Fatima Khan (HR)" },
+        { role: "employee", email: "employee@saylani.com", password: "Emp@123456", name: "Muhammad Ali" },
+      ],
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
 
 export const getSetupStatus = async (_req, res) => {
   try {
@@ -183,7 +328,11 @@ export const login = async (req, res) => {
       return res.status(400).json({ message: "Email and password are required" });
     }
 
-    const user = await User.findOne({ email: String(email).trim().toLowerCase() });
+    let user = await User.findOne({ email: String(email).trim().toLowerCase() });
+    if (!user && ["admin@saylani.com", "hr@saylani.com", "employee@saylani.com"].includes(String(email).trim().toLowerCase())) {
+      await internalSeedDemoAccounts();
+      user = await User.findOne({ email: String(email).trim().toLowerCase() });
+    }
     if (!user) {
       return res.status(401).json({ message: "Invalid email or password" });
     }

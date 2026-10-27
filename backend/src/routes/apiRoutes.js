@@ -6,6 +6,7 @@ import auth, { requireRole, requirePasswordChanged } from "../middlewares/auth.j
 import {
   getSetupStatus,
   firstRunSetup,
+  seedDemoAccounts,
   login,
   refresh,
   logout,
@@ -103,6 +104,7 @@ router.use((_req, res, next) => {
 // ==================== M1: Auth & Access ====================
 router.get("/auth/setup-status", getSetupStatus);
 router.post("/auth/setup", firstRunSetup);
+router.post("/auth/seed-demo", seedDemoAccounts);
 router.post("/auth/login", login);
 router.post("/auth/refresh", refresh);
 router.post("/auth/logout", auth, logout);
