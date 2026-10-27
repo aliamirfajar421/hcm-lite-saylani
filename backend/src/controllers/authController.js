@@ -336,8 +336,18 @@ export const login = async (req, res) => {
     if (!user) {
       return res.status(401).json({ message: "Invalid email or password" });
     }
-    if (!user.isActive) {
-      return res.status(403).json({ message: "Your account has been deactivated by Admin" });
+
+    if (user.approvalStatus === "pending") {
+      return res.status(403).json({
+        message: "Your employee account is pending confirmation by Admin or HR. Please wait for approval.",
+        isPendingApproval: true,
+      });
+    }
+
+    if (!user.isActive || user.approvalStatus === "rejected") {
+      return res.status(403).json({
+        message: "Your account has been deactivated or rejected by Admin. Please contact HR.",
+      });
     }
 
     const isMatch = await user.comparePassword(password);
@@ -649,6 +659,156 @@ export const resetUserPassword = async (req, res) => {
     res.json({
       message: "Password reset successfully. User must change it on next sign-in.",
       temporaryPassword,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const register = async (req, res) => {
+  try {
+    const { name, email, password, phone = "", department = "" } = req.body;
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "Name, email, and password are required" });
+    }
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ message: "Please provide a valid work email address" });
+    }
+    if (String(password).length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    }
+
+    const cleanEmail = String(email).trim().toLowerCase();
+    const existing = await User.findOne({ email: cleanEmail });
+    if (existing) {
+      return res.status(409).json({ message: "An account with this email already exists" });
+    }
+
+    const newUser = await User.create({
+      name: String(name).trim(),
+      email: cleanEmail,
+      password,
+      role: "employee",
+      isActive: false,
+      approvalStatus: "pending",
+      requestedDepartment: String(department || "").trim(),
+      requestedPhone: String(phone || "").trim(),
+      mustChangePassword: false,
+    });
+
+    await recordAudit({
+      actor: newUser,
+      action: "USER_SELF_REGISTERED",
+      entityType: "User",
+      entityId: newUser._id,
+      summary: `New employee self-registration requested by ${newUser.name} (${newUser.email}) - Pending Admin Approval`,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Registration submitted successfully! Your account is pending confirmation by Admin or HR. You will be able to sign in once approved.",
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const listPendingUsers = async (_req, res) => {
+  try {
+    const pendingUsers = await User.find({ approvalStatus: "pending" })
+      .select("-password -refreshToken -faceDescriptor")
+      .sort({ createdAt: -1 })
+      .lean();
+    res.json({ pendingUsers });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const approveUserRegistration = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    user.isActive = true;
+    user.approvalStatus = "approved";
+    await user.save();
+
+    let emp = await Employee.findOne({ userId: user._id });
+    if (!emp) {
+      const count = await Employee.countDocuments();
+      const code = `EMP${String(count + 1).padStart(3, "0")}`;
+      let dept = await Department.findOne({
+        $or: [{ code: user.requestedDepartment }, { name: user.requestedDepartment }],
+      });
+      if (!dept) dept = await Department.findOne();
+
+      emp = await Employee.create({
+        userId: user._id,
+        employeeCode: code,
+        fullName: user.name,
+        email: user.email,
+        phone: user.requestedPhone || "+92 300 0000000",
+        address: "Karachi, Pakistan",
+        gender: "male",
+        departmentId: dept?._id,
+        joiningDate: new Date().toISOString().slice(0, 10),
+        employmentStatus: "active",
+        salaryStructure: {
+          basic: 80000,
+          hraPercent: 40,
+          medicalPercent: 10,
+          hra: 32000,
+          medical: 8000,
+          otherAllowances: 0,
+          gross: 120000,
+        },
+      });
+      user.employeeId = emp._id;
+      await user.save();
+    }
+
+    await recordAudit({
+      actor: req.user,
+      action: "USER_REGISTRATION_APPROVED",
+      entityType: "User",
+      entityId: user._id,
+      summary: `Approved employee registration for '${user.email}' (${user.name})`,
+    });
+
+    res.json({
+      success: true,
+      message: `Approved and activated account for ${user.name}`,
+      user,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const rejectUserRegistration = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    user.isActive = false;
+    user.approvalStatus = "rejected";
+    await user.save();
+
+    await recordAudit({
+      actor: req.user,
+      action: "USER_REGISTRATION_REJECTED",
+      entityType: "User",
+      entityId: user._id,
+      summary: `Rejected registration for '${user.email}' (${user.name})`,
+    });
+
+    res.json({
+      success: true,
+      message: `Rejected registration for ${user.name}`,
+      user,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });

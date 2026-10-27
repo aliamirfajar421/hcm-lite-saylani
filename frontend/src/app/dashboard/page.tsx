@@ -7,12 +7,15 @@ import AppShell from "@/components/AppShell";
 import { useAuth } from "@/context/AuthContext";
 import {
   aiSummarizeApi,
+  approveUserRegistrationApi,
   checkInApi,
   checkOutApi,
   Department,
   downloadPayslipPdf,
   getDashboardApi,
   listDepartmentsApi,
+  listPendingUsersApi,
+  rejectUserRegistrationApi,
 } from "@/api/hcm";
 import { getApiErrorMessage } from "@/lib/api";
 import {
@@ -47,6 +50,49 @@ export default function DashboardPage() {
   const [checkingInOut, setCheckingInOut] = useState(false);
   const [cameraModalOpen, setCameraModalOpen] = useState(false);
 
+  // Pending Self-Registrations state (Admin & HR)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [pendingUsers, setPendingUsers] = useState<any[]>([]);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+
+  const loadPending = useCallback(async () => {
+    if (user && user.role !== "employee") {
+      try {
+        const res = await listPendingUsersApi();
+        setPendingUsers(res.pendingUsers || []);
+      } catch {
+        // non-blocking
+      }
+    }
+  }, [user]);
+
+  const handleApprove = async (id: string) => {
+    setApprovingId(id);
+    try {
+      const res = await approveUserRegistrationApi(id);
+      setToast(res.message);
+      await loadPending();
+      await loadDashboard();
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  const handleReject = async (id: string) => {
+    setApprovingId(id);
+    try {
+      const res = await rejectUserRegistrationApi(id);
+      setToast(res.message);
+      await loadPending();
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
   const loadDashboard = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -66,7 +112,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     void loadDashboard();
-  }, [loadDashboard]);
+    void loadPending();
+  }, [loadDashboard, loadPending]);
 
   useEffect(() => {
     if (user && user.role !== "employee") {
@@ -127,27 +174,208 @@ export default function DashboardPage() {
   return (
     <AppShell>
       <div className="space-y-6">
-        {/* Header + Filters + AI Summarize */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold capitalize">{user?.role} Dashboard</h1>
-            <p className="text-xs text-muted">
-              Real-time server-aggregated metrics from live company records (0 dummy data).
-            </p>
-          </div>
+        {/* Dynamic VIP Animated Role Banners */}
+        {user?.role === "admin" ? (
+          <div className="relative overflow-hidden rounded-3xl border border-purple-500/30 bg-gradient-to-br from-purple-950/75 via-indigo-950/60 to-slate-950/90 p-6 shadow-2xl backdrop-blur-xl">
+            <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-purple-600/20 blur-3xl pointer-events-none" />
+            <div className="absolute -left-16 -bottom-16 h-64 w-64 rounded-full bg-indigo-600/20 blur-3xl pointer-events-none" />
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-purple-400/40 bg-purple-500/20 px-3 py-1 text-xs font-extrabold uppercase tracking-wider text-purple-300 shadow-inner">
+                    <span className="animate-spin text-sm">✦</span> C-Level Executive Command
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-bold text-emerald-400">
+                    <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
+                    Enterprise Core Active
+                  </span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                  Saylani Tech Executive Suite
+                </h1>
+                <p className="text-xs sm:text-sm text-purple-200/80 max-w-xl">
+                  Strategic governance across Headcount, Multi-Slab Tax Payroll, Biometric Geofencing, and Immutable Security Audits.
+                </p>
+              </div>
 
-          {user?.role !== "employee" && (
-            <button
-              type="button"
-              onClick={handleSummarize}
-              disabled={summarizing || !data}
-              className="btn-primary self-start sm:self-auto"
-            >
-              <span>✦</span>
-              <span>{summarizing ? "Summarizing KPIs..." : "Summarize"}</span>
-            </button>
-          )}
-        </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSummarize}
+                  disabled={summarizing || !data}
+                  className="rounded-xl bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 text-xs font-bold transition shadow-md shadow-purple-900/40 flex items-center gap-1.5"
+                >
+                  <span>✦</span>
+                  <span>{summarizing ? "Analyzing KPIs..." : "AI Executive Brief"}</span>
+                </button>
+                <Link
+                  href="/organization"
+                  className="rounded-xl border border-purple-400/30 bg-purple-600/20 px-3.5 py-2.5 text-xs font-bold text-purple-200 hover:bg-purple-600/30 transition shadow-sm"
+                >
+                  ⚙️ Company Rules
+                </Link>
+                <Link
+                  href="/payroll"
+                  className="rounded-xl border border-indigo-400/30 bg-indigo-600/20 px-3.5 py-2.5 text-xs font-bold text-indigo-200 hover:bg-indigo-600/30 transition shadow-sm"
+                >
+                  💰 Finalize Payroll →
+                </Link>
+              </div>
+            </div>
+          </div>
+        ) : user?.role === "hr" ? (
+          <div className="relative overflow-hidden rounded-3xl border border-cyan-500/30 bg-gradient-to-br from-cyan-950/75 via-blue-950/60 to-slate-950/90 p-6 shadow-2xl backdrop-blur-xl">
+            <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-cyan-600/20 blur-3xl pointer-events-none" />
+            <div className="absolute -left-16 -bottom-16 h-64 w-64 rounded-full bg-blue-600/20 blur-3xl pointer-events-none" />
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/40 bg-cyan-500/20 px-3 py-1 text-xs font-extrabold uppercase tracking-wider text-cyan-300 shadow-inner">
+                    <span>💼</span> People & Culture Command Center
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-teal-500/30 bg-teal-500/10 px-2.5 py-0.5 text-[11px] font-bold text-teal-400">
+                    <span className="h-2 w-2 rounded-full bg-teal-400 animate-pulse" />
+                    Shift Active: 09:00 - 18:00
+                  </span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                  Workforce & Talent Operations
+                </h1>
+                <p className="text-xs sm:text-sm text-cyan-200/80 max-w-xl">
+                  Manage employee onboarding, real-time biometric daily board, smart leave reviews, and monthly payroll calculation drafts.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSummarize}
+                  disabled={summarizing || !data}
+                  className="rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2.5 text-xs font-bold transition shadow-md shadow-cyan-900/40 flex items-center gap-1.5"
+                >
+                  <span>✦</span>
+                  <span>{summarizing ? "Analyzing HR KPIs..." : "AI HR Summary"}</span>
+                </button>
+                <Link
+                  href="/employees"
+                  className="rounded-xl border border-cyan-400/30 bg-cyan-600/20 px-3.5 py-2.5 text-xs font-bold text-cyan-200 hover:bg-cyan-600/30 transition shadow-sm"
+                >
+                  👥 Onboard Employee
+                </Link>
+                <Link
+                  href="/leaves"
+                  className="rounded-xl border border-blue-400/30 bg-blue-600/20 px-3.5 py-2.5 text-xs font-bold text-blue-200 hover:bg-blue-600/30 transition shadow-sm"
+                >
+                  🏖️ Leave Queue →
+                </Link>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="relative overflow-hidden rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950/75 via-teal-950/60 to-slate-950/90 p-6 shadow-2xl backdrop-blur-xl">
+            <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-emerald-600/20 blur-3xl pointer-events-none" />
+            <div className="absolute -left-16 -bottom-16 h-64 w-64 rounded-full bg-teal-600/20 blur-3xl pointer-events-none" />
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-500/20 px-3 py-1 text-xs font-extrabold uppercase tracking-wider text-emerald-300 shadow-inner">
+                    <span>👤</span> Employee Self-Service Cockpit
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-teal-500/30 bg-teal-500/10 px-2.5 py-0.5 text-[11px] font-bold text-teal-400">
+                    <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
+                    Biometrics & Remote Ready
+                  </span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                  Welcome Back, {user?.name || "Team Member"}!
+                </h1>
+                <p className="text-xs sm:text-sm text-emerald-200/80 max-w-xl">
+                  Your personal career workstation. Check in with live biometric verification (or Remote WFH), submit natural language AI leaves, and inspect payslips.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCameraModalOpen(true)}
+                  className="rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 px-4 py-2.5 text-xs font-black transition shadow-lg shadow-emerald-500/20 flex items-center gap-1.5"
+                >
+                  <span>📸</span> Fast Biometric Check-In
+                </button>
+                <Link
+                  href="/leaves"
+                  className="rounded-xl border border-teal-400/30 bg-teal-600/20 px-3.5 py-2.5 text-xs font-bold text-teal-200 hover:bg-teal-600/30 transition shadow-sm"
+                >
+                  ✦ Smart AI Leave
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Pending Self-Registrations Alert Card (For Admin & HR) */}
+        {pendingUsers.length > 0 && (user?.role === "admin" || user?.role === "hr") && (
+          <div className="rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-purple-500/10 to-transparent p-5 shadow-lg space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/20 text-lg">
+                  ⏳
+                </span>
+                <div>
+                  <h2 className="text-sm font-bold text-amber-700 dark:text-amber-300">
+                    Pending Employee Registrations ({pendingUsers.length})
+                  </h2>
+                  <p className="text-xs text-muted">
+                    New employees registered via signup page. Review and approve to activate their portal access.
+                  </p>
+                </div>
+              </div>
+              <span className="rounded-full bg-amber-500/20 px-2.5 py-0.5 text-xs font-bold text-amber-600 dark:text-amber-400">
+                Action Required
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
+              {pendingUsers.map((pu) => (
+                <div
+                  key={pu._id}
+                  className="rounded-xl border border-default surface-card p-3.5 space-y-2 shadow-xs"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs">{pu.name}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 font-semibold uppercase">
+                      Pending
+                    </span>
+                  </div>
+                  <p className="text-[11px] font-mono text-muted">{pu.email}</p>
+                  <div className="text-[11px] text-muted flex items-center justify-between">
+                    <span>Dept: {pu.requestedDepartment || "General"}</span>
+                    <span>{pu.requestedPhone || "No phone"}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1 border-t border-default/50">
+                    <button
+                      type="button"
+                      disabled={approvingId === pu._id}
+                      onClick={() => handleApprove(pu._id)}
+                      className="flex-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white py-1.5 text-xs font-bold transition shadow-xs disabled:opacity-50"
+                    >
+                      {approvingId === pu._id ? "Approving..." : "✓ Approve"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={approvingId === pu._id}
+                      onClick={() => handleReject(pu._id)}
+                      className="rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-700 dark:text-rose-300 px-3 py-1.5 text-xs font-bold transition disabled:opacity-50"
+                    >
+                      ✕ Reject
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Date & Department Filters for Admin & HR */}
         {user?.role !== "employee" && (

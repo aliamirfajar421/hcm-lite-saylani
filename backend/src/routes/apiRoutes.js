@@ -8,6 +8,10 @@ import {
   firstRunSetup,
   seedDemoAccounts,
   login,
+  register,
+  listPendingUsers,
+  approveUserRegistration,
+  rejectUserRegistration,
   refresh,
   logout,
   me,
@@ -18,6 +22,7 @@ import {
   toggleUserStatus,
   resetUserPassword,
 } from "../controllers/authController.js";
+import { seedRichMockData } from "../utils/seedRichMockData.js";
 
 import {
   getCompanySettings,
@@ -105,6 +110,15 @@ router.use((_req, res, next) => {
 router.get("/auth/setup-status", getSetupStatus);
 router.post("/auth/setup", firstRunSetup);
 router.post("/auth/seed-demo", seedDemoAccounts);
+router.post("/auth/seed-rich-demo", async (_req, res) => {
+  try {
+    const result = await seedRichMockData();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+router.post("/auth/register", register);
 router.post("/auth/login", login);
 router.post("/auth/refresh", refresh);
 router.post("/auth/logout", auth, logout);
@@ -114,6 +128,9 @@ router.post("/auth/enroll-face", auth, requirePasswordChanged, enrollFaceDescrip
 
 // Admin User & Login Management (#05)
 router.get("/auth/users", auth, requirePasswordChanged, requireRole("admin"), listUsers);
+router.get("/auth/pending-users", auth, requirePasswordChanged, requireRole("admin", "hr"), listPendingUsers);
+router.patch("/auth/users/:id/approve", auth, requirePasswordChanged, requireRole("admin"), approveUserRegistration);
+router.patch("/auth/users/:id/reject", auth, requirePasswordChanged, requireRole("admin"), rejectUserRegistration);
 router.post("/auth/users/hr", auth, requirePasswordChanged, requireRole("admin"), createHrLogin);
 router.patch("/auth/users/:id/status", auth, requirePasswordChanged, requireRole("admin"), toggleUserStatus);
 router.post("/auth/users/:id/reset-password", auth, requirePasswordChanged, requireRole("admin"), resetUserPassword);

@@ -173,6 +173,59 @@ export const seedDemoAccountsApi = async () => {
   return data;
 };
 
+export const seedRichDemoApi = async () => {
+  const { data } = await api.post<{
+    success: boolean;
+    message: string;
+  }>("/auth/seed-rich-demo");
+  return data;
+};
+
+export const registerApi = async (payload: {
+  name: string;
+  email: string;
+  password: string;
+  phone?: string;
+  department?: string;
+}) => {
+  const { data } = await api.post<{
+    success: boolean;
+    message: string;
+  }>("/auth/register", payload);
+  return data;
+};
+
+export const listPendingUsersApi = async () => {
+  const { data } = await api.get<{
+    pendingUsers: Array<{
+      _id: string;
+      name: string;
+      email: string;
+      role: string;
+      requestedDepartment?: string;
+      requestedPhone?: string;
+      createdAt: string;
+    }>;
+  }>("/auth/pending-users");
+  return data;
+};
+
+export const approveUserRegistrationApi = async (userId: string) => {
+  const { data } = await api.patch<{
+    success: boolean;
+    message: string;
+  }>(`/auth/users/${userId}/approve`);
+  return data;
+};
+
+export const rejectUserRegistrationApi = async (userId: string) => {
+  const { data } = await api.patch<{
+    success: boolean;
+    message: string;
+  }>(`/auth/users/${userId}/reject`);
+  return data;
+};
+
 export const loginApi = async (payload: { email: string; password: string }) => {
   const { data } = await api.post<{
     accessToken: string;

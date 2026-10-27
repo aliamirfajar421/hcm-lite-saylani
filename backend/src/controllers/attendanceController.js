@@ -90,11 +90,14 @@ export const checkIn = async (req, res) => {
       const radiusMeters = Number(settings.officeLocation?.radiusMeters ?? 150);
       const distanceMeters = calculateHaversineMeters(Number(lat), Number(lng), officeLat, officeLng);
 
-      if (distanceMeters > radiusMeters) {
+      const isRemoteRequested = Boolean(req.body?.remoteMode || req.body?.bypassGeofence);
+
+      if (distanceMeters > radiusMeters && !isRemoteRequested) {
         return res.status(422).json({
-          message: `Outside office geofence: you are ${distanceMeters}m away (allowed radius: ${radiusMeters}m). You may submit an HR correction if working offsite.`,
+          message: `Outside office geofence: you are ${distanceMeters}m away (allowed radius: ${radiusMeters}m). You may submit an HR correction or click 'Check-In as Remote / WFH'.`,
           distanceMeters,
           radiusMeters,
+          canRemoteCheckIn: true,
         });
       }
 

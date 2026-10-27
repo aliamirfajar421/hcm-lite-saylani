@@ -34,6 +34,19 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    approvalStatus: {
+      type: String,
+      enum: ["approved", "pending", "rejected"],
+      default: "approved",
+    },
+    requestedDepartment: {
+      type: String,
+      default: "",
+    },
+    requestedPhone: {
+      type: String,
+      default: "",
+    },
     mustChangePassword: {
       type: Boolean,
       default: false,

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { loginApi, seedDemoAccountsApi } from "@/api/hcm";
+import { loginApi, seedRichDemoApi } from "@/api/hcm";
 import { useAuth } from "@/context/AuthContext";
 import { getApiErrorMessage } from "@/lib/api";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -111,10 +112,10 @@ export default function LoginPage() {
 
   const handleAutoSeed = async () => {
     setError("");
-    setSeedNotice("Preparing demo database...");
+    setSeedNotice("Preparing full rich demo database (Employees, Attendance, Leaves, Payroll)...");
     try {
-      const res = await seedDemoAccountsApi();
-      setSeedNotice(res.message || "Demo accounts ready! Click any demo role below.");
+      const res = await seedRichDemoApi();
+      setSeedNotice(res.message || "Rich demo dataset loaded! Click any demo role below.");
     } catch (err) {
       setError(getApiErrorMessage(err, "Failed to initialize demo accounts"));
     }
@@ -214,6 +215,16 @@ export default function LoginPage() {
           <button type="submit" disabled={submitting} className="btn-primary w-full py-2.5 font-semibold">
             {submitting ? "Signing In..." : "Sign In"}
           </button>
+
+          <div className="flex items-center justify-between pt-1 text-xs">
+            <span className="text-muted">New employee?</span>
+            <Link
+              href="/register"
+              className="font-semibold text-teal-600 dark:text-teal-400 hover:underline"
+            >
+              Register for Account →
+            </Link>
+          </div>
         </form>
 
         {/* Demo Credentials & Fast Role Tester */}

@@ -128,6 +128,7 @@ export default function CameraCheckInModal({
   const [gpsError, setGpsError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [enrolling, setEnrolling] = useState(false);
+  const [remoteMode, setRemoteMode] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [infoMsg, setInfoMsg] = useState("");
 
@@ -214,9 +215,10 @@ export default function CameraCheckInModal({
     }
   };
 
-  const handleCameraCheckIn = async () => {
+  const handleCameraCheckIn = async (overrideRemote?: boolean) => {
     setErrorMsg("");
     setSubmitting(true);
+    const isRemote = overrideRemote !== undefined ? overrideRemote : remoteMode;
     try {
       const res = await checkInApi({
         source: "camera",
@@ -227,7 +229,9 @@ export default function CameraCheckInModal({
         faceCount,
         livenessVerified,
         faceDescriptor: descriptor,
-      });
+        remoteMode: isRemote,
+        bypassGeofence: isRemote,
+      } as any);
       onSuccess(res.message);
       onClose();
     } catch (err) {
@@ -314,10 +318,21 @@ export default function CameraCheckInModal({
         </div>
 
         {/* Privacy Notice required by Section 5 */}
-        <div className="rounded-lg border border-teal-500/30 bg-teal-500/10 p-3 text-xs">
-          <strong>What is captured:</strong> Only face verification status, optional numeric face
-          descriptor match, liveness flag, and server-verified office distance are stored —{" "}
-          <strong>no full photo is saved</strong>.
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-teal-500/30 bg-teal-500/10 p-3 text-xs">
+          <div>
+            <strong>What is captured:</strong> Only face verification status, optional numeric face
+            descriptor match, liveness flag, and server-verified office distance are stored —{" "}
+            <strong>no full photo is saved</strong>.
+          </div>
+          <label className="flex shrink-0 items-center gap-2 cursor-pointer select-none rounded-md bg-teal-600/20 px-2.5 py-1.5 border border-teal-500/40 text-[11px] font-bold text-teal-700 dark:text-teal-300">
+            <input
+              type="checkbox"
+              checked={remoteMode}
+              onChange={(e) => setRemoteMode(e.target.checked)}
+              className="rounded accent-teal-600"
+            />
+            <span>Remote / WFH Mode</span>
+          </label>
         </div>
 
         {infoMsg && (
@@ -329,17 +344,31 @@ export default function CameraCheckInModal({
         {errorMsg && (
           <div className="space-y-2 rounded-lg bg-rose-500/15 p-3 text-xs text-rose-700 dark:text-rose-300">
             <p className="font-semibold">{errorMsg}</p>
+            {errorMsg.toLowerCase().includes("geofence") && (
+              <div className="pt-1 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleCameraCheckIn(true)}
+                  disabled={submitting || faceCount !== 1}
+                  className="rounded-lg bg-teal-600 px-3 py-1.5 font-bold text-white hover:bg-teal-700 shadow-sm transition"
+                >
+                  🏠 Check-In as Remote / WFH (Approved Off-site)
+                </button>
+              </div>
+            )}
             {onFallbackCorrection && (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onFallbackCorrection();
-                }}
-                className="underline font-semibold"
-              >
-                Fallback → Submit an HR Attendance Correction Request
-              </button>
+              <div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onFallbackCorrection();
+                  }}
+                  className="underline font-semibold"
+                >
+                  Fallback → Submit an HR Attendance Correction Request
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -365,7 +394,7 @@ export default function CameraCheckInModal({
             <button
               type="button"
               disabled={submitting || faceCount !== 1 || !gps}
-              onClick={handleCameraCheckIn}
+              onClick={() => handleCameraCheckIn()}
               className="btn-primary"
             >
               {submitting ? "Verifying on Server..." : "Verify & Check In"}
