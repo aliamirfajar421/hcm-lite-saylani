@@ -2,7 +2,7 @@ import axios from "axios";
 
 function resolveApiBaseUrl(): string {
   const raw = (process.env.NEXT_PUBLIC_API_URL || "").trim();
-  if (!raw) return "http://localhost:5001/api";
+  if (!raw) return "http://localhost:5005/api";
   let normalized = raw.replace(/\/+$/, "");
   if (!/^https?:\/\//i.test(normalized)) {
     const isLocal = /^(localhost|127\.0\.0\.1|192\.168\.)/i.test(normalized);
