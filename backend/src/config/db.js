@@ -1,6 +1,13 @@
 import mongoose from "mongoose";
 import dns from "dns";
 
+// Ensure reliable public DNS resolution for Atlas SRV queries across all ISPs and cloud providers
+try {
+  dns.setServers(["8.8.8.8", "1.1.1.1"]);
+} catch {
+  // Ignore in environments where setting DNS servers is restricted
+}
+
 export const dbState = {
   connected: false,
   lastError: null,
