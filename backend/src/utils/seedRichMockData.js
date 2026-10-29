@@ -8,6 +8,7 @@ import { Attendance, AttendanceCorrection } from "../models/Attendance.js";
 import LeaveRequest from "../models/LeaveRequest.js";
 import { Announcement, Notification } from "../models/CommsAudit.js";
 import { PayrollRun, Payslip } from "../models/Payroll.js";
+import Performance from "../models/Performance.js";
 
 try {
   dns.setServers(["8.8.8.8", "1.1.1.1"]);
@@ -483,9 +484,40 @@ export async function seedRichMockData() {
     }
   }
 
+  // 12. Seed Performance & OKR Goals for Employees
+  for (const s of seededEmployees) {
+    const existingPerf = await Performance.findOne({ employeeId: s.employee._id, period: "Q4 2026" });
+    if (!existingPerf) {
+      await Performance.create({
+        employeeId: s.employee._id,
+        userId: s.user._id,
+        period: "Q4 2026",
+        goals: [
+          {
+            title: `Deliver ${s.meta.dept} Core Infrastructure Milestones`,
+            description: "Achieve sprint deliverables with sub-100ms response targets.",
+            targetMetric: "100% on-schedule release",
+            progress: 85,
+            status: "in_progress",
+          },
+          {
+            title: "Punctuality & Punctuality Streak Maintenance",
+            description: "Maintain verified biometric attendance and 0 unexcused absences.",
+            targetMetric: "98% on-time check-ins",
+            progress: 100,
+            status: "completed",
+          },
+        ],
+        managerRating: 5,
+        managerFeedback: "Exemplary performance, great cross-functional collaboration, and proactive technical execution.",
+        aiSummary: "Top Tier Performer. Verified 18-Day on-time streak with high milestone completion.",
+      });
+    }
+  }
+
   console.log("Rich mock dataset seeded successfully!");
   return {
     success: true,
-    message: "Rich mock dataset seeded successfully (Employees, Attendance, Leaves, Announcements, Payroll)!",
+    message: "Rich mock dataset seeded successfully (Employees, Attendance, Leaves, Announcements, Payroll, Performance)!",
   };
 }
