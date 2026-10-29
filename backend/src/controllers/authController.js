@@ -735,11 +735,66 @@ export const register = async (req, res) => {
 
 export const listPendingUsers = async (_req, res) => {
   try {
-    const pendingUsers = await User.find({ approvalStatus: "pending" })
+    const pendingUsers = await User.find({
+      $or: [
+        { approvalStatus: "pending" },
+        { isActive: false, role: "employee" },
+      ],
+    })
       .select("-password -refreshToken -faceDescriptor")
       .sort({ createdAt: -1 })
       .lean();
     res.json({ pendingUsers });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const seedPendingDemoUser = async (req, res) => {
+  try {
+    const timestamp = Date.now().toString().slice(-4);
+    const demoProfiles = [
+      { name: "Bilal Farooq", dept: "Engineering", phone: "+92 321 4455667" },
+      { name: "Sana Tariq", dept: "Human Resources", phone: "+92 333 1122334" },
+      { name: "Zaid Hashmi", dept: "Finance", phone: "+92 301 9988776" },
+      { name: "Ayesha Malik", dept: "Sales", phone: "+92 312 5566778" },
+      { name: "Farhan Saeed", dept: "Engineering", phone: "+92 345 6677889" },
+    ];
+    const pick = demoProfiles[Math.floor(Math.random() * demoProfiles.length)];
+    const email = `${pick.name.toLowerCase().replace(/\s+/g, ".")}.${timestamp}@saylani.com`;
+
+    const newUser = await User.create({
+      name: pick.name,
+      email,
+      password: "User@12345",
+      role: "employee",
+      isActive: false,
+      approvalStatus: "pending",
+      requestedDepartment: pick.dept,
+      requestedPhone: pick.phone,
+      mustChangePassword: false,
+    });
+
+    await recordAudit({
+      actor: req.user || { name: "System Admin", role: "admin" },
+      action: "USER_SELF_REGISTERED",
+      entityType: "User",
+      entityId: newUser._id,
+      summary: `Demo applicant self-registration simulated: ${newUser.name} (${newUser.email}) - Awaiting Approval`,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: `Simulated registration for ${newUser.name} created! It is now in the approvals queue.`,
+      user: {
+        _id: newUser._id,
+        name: newUser.name,
+        email: newUser.email,
+        requestedDepartment: newUser.requestedDepartment,
+        requestedPhone: newUser.requestedPhone,
+        createdAt: newUser.createdAt,
+      },
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

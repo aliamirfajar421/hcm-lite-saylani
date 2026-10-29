@@ -78,14 +78,32 @@ export const getDashboardData = async (req, res) => {
     }
 
     if (req.user.role === "hr") {
-      const [headcountData, attendanceData, leaveData, pendingLeaves, pendingCorrections] =
-        await Promise.all([
-          computeHeadcountMetrics({ departmentId, startDate, endDate }),
-          computeAttendanceAnalytics({ startDate, endDate, departmentId }),
-          computeLeaveSummary({ departmentId, startDate, endDate }),
-          LeaveRequest.countDocuments({ status: "pending" }),
-          AttendanceCorrection.countDocuments({ status: "pending" }),
-        ]);
+      const [
+        headcountData,
+        attendanceData,
+        leaveData,
+        pendingLeaves,
+        pendingCorrections,
+        pendingLeaveList,
+        todayAttendanceRoster,
+      ] = await Promise.all([
+        computeHeadcountMetrics({ departmentId, startDate, endDate }),
+        computeAttendanceAnalytics({ startDate, endDate, departmentId }),
+        computeLeaveSummary({ departmentId, startDate, endDate }),
+        LeaveRequest.countDocuments({ status: "pending" }),
+        AttendanceCorrection.countDocuments({ status: "pending" }),
+        LeaveRequest.find({ status: "pending" })
+          .populate("userId", "name email")
+          .populate("leaveTypeId", "name code")
+          .sort({ createdAt: -1 })
+          .limit(6)
+          .lean(),
+        Attendance.find({ date: todayStr })
+          .populate("userId", "name email")
+          .sort({ checkInAt: -1 })
+          .limit(10)
+          .lean(),
+      ]);
 
       return res.json({
         role: "hr",
@@ -108,6 +126,8 @@ export const getDashboardData = async (req, res) => {
         topLateComers: attendanceData.topLateComers,
         anomalyFlags: attendanceData.anomalyFlags,
         attritionRisk: attendanceData.attritionRisk,
+        pendingLeaveList,
+        todayAttendanceRoster,
         announcements,
       });
     }

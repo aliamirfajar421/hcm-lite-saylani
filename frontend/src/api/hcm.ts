@@ -210,6 +210,22 @@ export const listPendingUsersApi = async () => {
   return data;
 };
 
+export const simulatePendingUserApi = async () => {
+  const { data } = await api.post<{
+    success: boolean;
+    message: string;
+    user: {
+      _id: string;
+      name: string;
+      email: string;
+      requestedDepartment: string;
+      requestedPhone: string;
+      createdAt: string;
+    };
+  }>("/auth/pending-users/simulate");
+  return data;
+};
+
 export const approveUserRegistrationApi = async (userId: string) => {
   const { data } = await api.patch<{
     success: boolean;

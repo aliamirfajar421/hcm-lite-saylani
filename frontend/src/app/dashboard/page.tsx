@@ -16,6 +16,8 @@ import {
   listDepartmentsApi,
   listPendingUsersApi,
   rejectUserRegistrationApi,
+  reviewLeaveApi,
+  simulatePendingUserApi,
 } from "@/api/hcm";
 import { getApiErrorMessage } from "@/lib/api";
 import {
@@ -59,6 +61,8 @@ export default function DashboardPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [pendingUsers, setPendingUsers] = useState<any[]>([]);
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [simulatingPending, setSimulatingPending] = useState(false);
+  const [reviewingLeaveId, setReviewingLeaveId] = useState<string | null>(null);
 
   const loadPending = useCallback(async () => {
     if (user && user.role !== "employee") {
@@ -99,6 +103,47 @@ export default function DashboardPage() {
     }
   };
 
+  const handleSimulatePending = async () => {
+    setSimulatingPending(true);
+    setError("");
+    try {
+      const res = await simulatePendingUserApi();
+      setToast(res.message);
+      await loadPending();
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Failed to simulate pending user"));
+    } finally {
+      setSimulatingPending(false);
+    }
+  };
+
+  const handleApproveLeave = async (leaveId: string) => {
+    setReviewingLeaveId(leaveId);
+    try {
+      await reviewLeaveApi(leaveId, { decision: "approved" });
+      triggerConfetti(2000);
+      setToast("Leave request approved successfully!");
+      await loadDashboard();
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+    } finally {
+      setReviewingLeaveId(null);
+    }
+  };
+
+  const handleRejectLeave = async (leaveId: string) => {
+    setReviewingLeaveId(leaveId);
+    try {
+      await reviewLeaveApi(leaveId, { decision: "rejected" });
+      setToast("Leave request rejected.");
+      await loadDashboard();
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+    } finally {
+      setReviewingLeaveId(null);
+    }
+  };
+
   const loadDashboard = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -120,6 +165,16 @@ export default function DashboardPage() {
     void loadDashboard();
     void loadPending();
   }, [loadDashboard, loadPending]);
+
+  // Periodic poll for pending registrations for Admin & HR (every 10s)
+  useEffect(() => {
+    if (user && user.role !== "employee") {
+      const interval = setInterval(() => {
+        void loadPending();
+      }, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [loadPending, user]);
 
   useEffect(() => {
     if (user && user.role !== "employee") {
@@ -180,27 +235,28 @@ export default function DashboardPage() {
   return (
     <AppShell>
       <div className="space-y-6">
-        {/* Dynamic VIP Animated Role Banners */}
+        {/* ==================== 1. ROLE-EXCLUSIVE VIP TOP BANNERS ==================== */}
         {user?.role === "admin" ? (
-          <div className="relative overflow-hidden rounded-3xl border border-purple-500/30 bg-gradient-to-br from-purple-950/75 via-indigo-950/60 to-slate-950/90 p-6 shadow-2xl backdrop-blur-xl">
+          <div className="relative overflow-hidden rounded-3xl border border-purple-500/30 bg-gradient-to-br from-purple-950/80 via-indigo-950/70 to-slate-950/95 p-6 shadow-2xl backdrop-blur-xl">
             <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-purple-600/20 blur-3xl pointer-events-none" />
             <div className="absolute -left-16 -bottom-16 h-64 w-64 rounded-full bg-indigo-600/20 blur-3xl pointer-events-none" />
             <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2.5">
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-purple-400/40 bg-purple-500/20 px-3 py-1 text-xs font-extrabold uppercase tracking-wider text-purple-300 shadow-inner">
-                    <span className="animate-spin text-sm">✦</span> C-Level Executive Command
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
+                    C-Level Executive Command
                   </span>
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-bold text-emerald-400">
                     <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-                    Enterprise Core Active
+                    Enterprise Governance Active
                   </span>
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
                   Saylani Tech Executive Suite
                 </h1>
                 <p className="text-xs sm:text-sm text-purple-200/80 max-w-xl">
-                  Strategic governance across Headcount, Multi-Slab Tax Payroll, Biometric Geofencing, and Immutable Security Audits.
+                  Strategic governance across Headcount, Multi-Slab Tax Payroll, Biometric Geofencing, User Approvals, and Immutable Security Audits.
                 </p>
               </div>
 
@@ -211,7 +267,7 @@ export default function DashboardPage() {
                   disabled={summarizing || !data}
                   className="rounded-xl bg-purple-600 hover:bg-purple-700 text-white px-4 py-2.5 text-xs font-bold transition shadow-md shadow-purple-900/40 flex items-center gap-1.5"
                 >
-                  <span>✦</span>
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3v18M3 12h18" /></svg>
                   <span>{summarizing ? "Analyzing KPIs..." : "AI Executive Brief"}</span>
                 </button>
                 <button
@@ -219,44 +275,47 @@ export default function DashboardPage() {
                   onClick={() => setReportOpen(true)}
                   className="rounded-xl border border-emerald-400/30 bg-emerald-600/20 px-3.5 py-2.5 text-xs font-bold text-emerald-200 hover:bg-emerald-600/30 transition shadow-sm flex items-center gap-1.5"
                 >
-                  <span>📄</span>
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
                   <span>Executive Report</span>
                 </button>
                 <Link
                   href="/organization"
-                  className="rounded-xl border border-purple-400/30 bg-purple-600/20 px-3.5 py-2.5 text-xs font-bold text-purple-200 hover:bg-purple-600/30 transition shadow-sm"
+                  className="rounded-xl border border-purple-400/30 bg-purple-600/20 px-3.5 py-2.5 text-xs font-bold text-purple-200 hover:bg-purple-600/30 transition shadow-sm flex items-center gap-1.5"
                 >
-                  ⚙️ Company Rules
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
+                  <span>Company Rules</span>
                 </Link>
                 <Link
                   href="/payroll"
-                  className="rounded-xl border border-indigo-400/30 bg-indigo-600/20 px-3.5 py-2.5 text-xs font-bold text-indigo-200 hover:bg-indigo-600/30 transition shadow-sm"
+                  className="rounded-xl border border-indigo-400/30 bg-indigo-600/20 px-3.5 py-2.5 text-xs font-bold text-indigo-200 hover:bg-indigo-600/30 transition shadow-sm flex items-center gap-1.5"
                 >
-                  💰 Finalize Payroll →
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="4" width="20" height="16" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /></svg>
+                  <span>Finalize Payroll →</span>
                 </Link>
               </div>
             </div>
           </div>
         ) : user?.role === "hr" ? (
-          <div className="relative overflow-hidden rounded-3xl border border-cyan-500/30 bg-gradient-to-br from-cyan-950/75 via-blue-950/60 to-slate-950/90 p-6 shadow-2xl backdrop-blur-xl">
+          <div className="relative overflow-hidden rounded-3xl border border-cyan-500/30 bg-gradient-to-br from-cyan-950/80 via-blue-950/70 to-slate-950/95 p-6 shadow-2xl backdrop-blur-xl">
             <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-cyan-600/20 blur-3xl pointer-events-none" />
             <div className="absolute -left-16 -bottom-16 h-64 w-64 rounded-full bg-blue-600/20 blur-3xl pointer-events-none" />
             <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2.5">
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/40 bg-cyan-500/20 px-3 py-1 text-xs font-extrabold uppercase tracking-wider text-cyan-300 shadow-inner">
-                    <span>💼</span> People & Culture Command Center
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></svg>
+                    People & Culture Command Center
                   </span>
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-teal-500/30 bg-teal-500/10 px-2.5 py-0.5 text-[11px] font-bold text-teal-400">
                     <span className="h-2 w-2 rounded-full bg-teal-400 animate-pulse" />
-                    Shift Active: 09:00 - 18:00
+                    Shift Active: 09:00 - 18:00 PKT
                   </span>
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
                   Workforce & Talent Operations
                 </h1>
                 <p className="text-xs sm:text-sm text-cyan-200/80 max-w-xl">
-                  Manage employee onboarding, real-time biometric daily board, smart leave reviews, and monthly payroll calculation drafts.
+                  Manage employee onboarding, real-time biometric daily roster, instant leave reviews, and attendance anomaly corrections.
                 </p>
               </div>
 
@@ -267,7 +326,7 @@ export default function DashboardPage() {
                   disabled={summarizing || !data}
                   className="rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2.5 text-xs font-bold transition shadow-md shadow-cyan-900/40 flex items-center gap-1.5"
                 >
-                  <span>✦</span>
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>
                   <span>{summarizing ? "Analyzing HR KPIs..." : "AI HR Summary"}</span>
                 </button>
                 <button
@@ -275,33 +334,36 @@ export default function DashboardPage() {
                   onClick={() => setReportOpen(true)}
                   className="rounded-xl border border-emerald-400/30 bg-emerald-600/20 px-3.5 py-2.5 text-xs font-bold text-emerald-200 hover:bg-emerald-600/30 transition shadow-sm flex items-center gap-1.5"
                 >
-                  <span>📄</span>
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
                   <span>Executive Report</span>
                 </button>
                 <Link
                   href="/employees"
-                  className="rounded-xl border border-cyan-400/30 bg-cyan-600/20 px-3.5 py-2.5 text-xs font-bold text-cyan-200 hover:bg-cyan-600/30 transition shadow-sm"
+                  className="rounded-xl border border-cyan-400/30 bg-cyan-600/20 px-3.5 py-2.5 text-xs font-bold text-cyan-200 hover:bg-cyan-600/30 transition shadow-sm flex items-center gap-1.5"
                 >
-                  👥 Onboard Employee
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><line x1="20" y1="8" x2="20" y2="14" /><line x1="23" y1="11" x2="17" y2="11" /></svg>
+                  <span>Onboard Employee</span>
                 </Link>
                 <Link
                   href="/leaves"
-                  className="rounded-xl border border-blue-400/30 bg-blue-600/20 px-3.5 py-2.5 text-xs font-bold text-blue-200 hover:bg-blue-600/30 transition shadow-sm"
+                  className="rounded-xl border border-blue-400/30 bg-blue-600/20 px-3.5 py-2.5 text-xs font-bold text-blue-200 hover:bg-blue-600/30 transition shadow-sm flex items-center gap-1.5"
                 >
-                  🏖️ Leave Queue →
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                  <span>Leave Queue →</span>
                 </Link>
               </div>
             </div>
           </div>
         ) : (
-          <div className="relative overflow-hidden rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950/75 via-teal-950/60 to-slate-950/90 p-6 shadow-2xl backdrop-blur-xl">
+          <div className="relative overflow-hidden rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950/80 via-teal-950/70 to-slate-950/95 p-6 shadow-2xl backdrop-blur-xl">
             <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-emerald-600/20 blur-3xl pointer-events-none" />
             <div className="absolute -left-16 -bottom-16 h-64 w-64 rounded-full bg-teal-600/20 blur-3xl pointer-events-none" />
             <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2.5">
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-500/20 px-3 py-1 text-xs font-extrabold uppercase tracking-wider text-emerald-300 shadow-inner">
-                    <span>👤</span> Employee Self-Service Cockpit
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                    Employee Self-Service Cockpit
                   </span>
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-teal-500/30 bg-teal-500/10 px-2.5 py-0.5 text-[11px] font-bold text-teal-400">
                     <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
@@ -322,91 +384,30 @@ export default function DashboardPage() {
                   onClick={() => setCameraModalOpen(true)}
                   className="rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 px-4 py-2.5 text-xs font-black transition shadow-lg shadow-emerald-500/20 flex items-center gap-1.5"
                 >
-                  <span>📸</span> {data?.todayAttendance?.checkInAt ? "Biometric Check-In (Recorded ✓)" : "Fast Biometric Check-In"}
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>
+                  <span>{data?.todayAttendance?.checkInAt ? "Biometric Check-In (Recorded ✓)" : "Fast Biometric Check-In"}</span>
                 </button>
                 <Link
                   href="/leaves"
-                  className="rounded-xl border border-teal-400/30 bg-teal-600/20 px-3.5 py-2.5 text-xs font-bold text-teal-200 hover:bg-teal-600/30 transition shadow-sm"
+                  className="rounded-xl border border-teal-400/30 bg-teal-600/20 px-3.5 py-2.5 text-xs font-bold text-teal-200 hover:bg-teal-600/30 transition shadow-sm flex items-center gap-1.5"
                 >
-                  ✦ Smart AI Leave
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
+                  <span>✦ Smart AI Leave</span>
                 </Link>
                 <button
                   type="button"
                   onClick={() => setBadgeOpen(true)}
                   className="rounded-xl border border-teal-400/30 bg-teal-600/20 px-3.5 py-2.5 text-xs font-bold text-teal-200 hover:bg-teal-600/30 transition shadow-sm flex items-center gap-1.5"
                 >
-                  <span>🪪</span> Smart ID Badge
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><line x1="15" y1="8" x2="17" y2="8" /><line x1="15" y1="12" x2="17" y2="12" /></svg>
+                  <span>Smart ID Badge</span>
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* Pending Self-Registrations Alert Card (For Admin & HR) */}
-        {pendingUsers.length > 0 && (user?.role === "admin" || user?.role === "hr") && (
-          <div className="rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-purple-500/10 to-transparent p-5 shadow-lg space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/20 text-lg">
-                  ⏳
-                </span>
-                <div>
-                  <h2 className="text-sm font-bold text-amber-700 dark:text-amber-300">
-                    Pending Employee Registrations ({pendingUsers.length})
-                  </h2>
-                  <p className="text-xs text-muted">
-                    New employees registered via signup page. Review and approve to activate their portal access.
-                  </p>
-                </div>
-              </div>
-              <span className="rounded-full bg-amber-500/20 px-2.5 py-0.5 text-xs font-bold text-amber-600 dark:text-amber-400">
-                Action Required
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
-              {pendingUsers.map((pu) => (
-                <div
-                  key={pu._id}
-                  className="rounded-xl border border-default surface-card p-3.5 space-y-2 shadow-xs"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs">{pu.name}</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 font-semibold uppercase">
-                      Pending
-                    </span>
-                  </div>
-                  <p className="text-[11px] font-mono text-muted">{pu.email}</p>
-                  <div className="text-[11px] text-muted flex items-center justify-between">
-                    <span>Dept: {pu.requestedDepartment || "General"}</span>
-                    <span>{pu.requestedPhone || "No phone"}</span>
-                  </div>
-
-                  <div className="flex items-center gap-2 pt-1 border-t border-default/50">
-                    <button
-                      type="button"
-                      disabled={approvingId === pu._id}
-                      onClick={() => handleApprove(pu._id)}
-                      className="flex-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white py-1.5 text-xs font-bold transition shadow-xs disabled:opacity-50"
-                    >
-                      {approvingId === pu._id ? "Approving..." : "✓ Approve"}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={approvingId === pu._id}
-                      onClick={() => handleReject(pu._id)}
-                      className="rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-700 dark:text-rose-300 px-3 py-1.5 text-xs font-bold transition disabled:opacity-50"
-                    >
-                      ✕ Reject
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Date & Department Filters for Admin & HR */}
+        {/* Date & Department Filters for Admin & HR only */}
         {user?.role !== "employee" && (
           <div className="surface-card rounded-xl p-4 grid grid-cols-1 gap-3 sm:grid-cols-4">
             <div>
@@ -467,14 +468,17 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {/* Status Alerts */}
         {toast && (
-          <div className="rounded-xl bg-emerald-500/15 p-3.5 text-sm font-medium text-emerald-700 dark:text-emerald-300">
-            {toast}
+          <div className="rounded-xl bg-emerald-500/15 border border-emerald-500/30 p-3.5 text-sm font-medium text-emerald-700 dark:text-emerald-300 flex items-center justify-between">
+            <span>{toast}</span>
+            <button type="button" onClick={() => setToast("")} className="text-xs hover:underline opacity-80">Dismiss</button>
           </div>
         )}
         {error && (
-          <div className="rounded-xl bg-rose-500/15 p-3.5 text-sm font-medium text-rose-700 dark:text-rose-300">
-            {error}
+          <div className="rounded-xl bg-rose-500/15 border border-rose-500/30 p-3.5 text-sm font-medium text-rose-700 dark:text-rose-300 flex items-center justify-between">
+            <span>{error}</span>
+            <button type="button" onClick={() => setError("")} className="text-xs hover:underline opacity-80">Dismiss</button>
           </div>
         )}
 
@@ -502,8 +506,11 @@ export default function DashboardPage() {
             ))}
           </div>
         ) : data?.role === "admin" ? (
-          /* ===================== ADMIN DASHBOARD ===================== */
+          /* ===================================================================== */
+          /* ======================= ADMIN EXCLUSIVE DASHBOARD =================== */
+          /* ===================================================================== */
           <div className="space-y-6">
+            {/* 1. C-Suite Financial & Workforce KPI Cards */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <KpiCard
                 label="Active Headcount"
@@ -512,13 +519,7 @@ export default function DashboardPage() {
                 accent="teal"
               />
               <KpiCard
-                label="Attrition YTD"
-                value={`${data.kpis.attritionRate}%`}
-                sub={`Exits in period: ${data.kpis.exitsInPeriod}`}
-                accent="rose"
-              />
-              <KpiCard
-                label="Monthly Payroll Cost"
+                label="Monthly Payroll Budget"
                 value={`${currency} ${Number(data.kpis.payrollCost || 0).toLocaleString()}`}
                 sub={`Attendance rate: ${data.kpis.attendanceRate}%`}
                 accent="indigo"
@@ -526,16 +527,124 @@ export default function DashboardPage() {
               <KpiCard
                 label="Average Gross Salary"
                 value={`${currency} ${Number(data.kpis.avgSalary || 0).toLocaleString()}`}
-                sub="Mean gross across active workforce"
+                sub="Mean monthly gross per employee"
                 accent="amber"
+              />
+              <KpiCard
+                label="Attrition Rate YTD"
+                value={`${data.kpis.attritionRate}%`}
+                sub={`Exits in period: ${data.kpis.exitsInPeriod}`}
+                accent="rose"
               />
             </div>
 
+            {/* 2. PERMANENT EMPLOYEE REGISTRATION APPROVALS QUEUE */}
+            <div className="rounded-2xl border border-purple-500/30 bg-gradient-to-r from-purple-500/10 via-indigo-500/5 to-transparent p-5 shadow-lg space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/20 text-purple-300">
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><polyline points="17 11 19 13 23 9" /></svg>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-sm font-black text-purple-700 dark:text-purple-300 tracking-wide uppercase">
+                        Employee Registration Approvals
+                      </h2>
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${pendingUsers.length > 0 ? "bg-amber-500/20 text-amber-500 animate-pulse" : "bg-emerald-500/20 text-emerald-400"}`}>
+                        {pendingUsers.length} Pending
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted">
+                      Employees registering via the signup page require Admin approval before accessing portal credentials.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void loadPending()}
+                    title="Refresh registration queue"
+                    className="rounded-xl border border-default surface-subtle px-3 py-1.5 text-xs font-semibold hover:border-purple-400/50 transition flex items-center gap-1.5 text-muted hover:text-foreground"
+                  >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 4v6h-6M1 20v-6h6" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></svg>
+                    <span>Refresh</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={simulatingPending}
+                    onClick={handleSimulatePending}
+                    className="rounded-xl bg-purple-600 hover:bg-purple-700 text-white px-3.5 py-1.5 text-xs font-bold transition shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                    <span>{simulatingPending ? "Generating..." : "+ Simulate Registration"}</span>
+                  </button>
+                </div>
+              </div>
+
+              {pendingUsers.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-emerald-500/30 bg-emerald-500/5 p-4 text-center">
+                  <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 flex items-center justify-center gap-1.5">
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                    All registered employee accounts are verified. No pending approval requests.
+                  </p>
+                  <p className="text-[11px] text-muted mt-1">
+                    Click <strong>&quot;+ Simulate Registration&quot;</strong> above or register a new user on the signup page to test live approval.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {pendingUsers.map((pu) => (
+                    <div
+                      key={pu._id}
+                      className="rounded-xl border border-default surface-card p-3.5 space-y-2 shadow-xs hover:border-purple-500/40 transition"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-foreground">{pu.name}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 font-semibold uppercase">
+                          Pending Approval
+                        </span>
+                      </div>
+                      <p className="text-[11px] font-mono text-muted truncate">{pu.email}</p>
+                      <div className="text-[11px] text-muted flex items-center justify-between pt-0.5">
+                        <span>Dept: <strong className="text-foreground">{pu.requestedDepartment || "Engineering"}</strong></span>
+                        <span>{pu.requestedPhone || "+92 300 0000000"}</span>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-2 border-t border-default/50">
+                        <button
+                          type="button"
+                          disabled={approvingId === pu._id}
+                          onClick={() => handleApprove(pu._id)}
+                          className="flex-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white py-1.5 text-xs font-bold transition shadow-xs disabled:opacity-50 flex items-center justify-center gap-1"
+                        >
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                          <span>{approvingId === pu._id ? "Activating..." : "Approve & Activate"}</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={approvingId === pu._id}
+                          onClick={() => handleReject(pu._id)}
+                          className="rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-700 dark:text-rose-300 px-3 py-1.5 text-xs font-bold transition disabled:opacity-50"
+                        >
+                          ✕ Reject
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 3. Department Headcount & Payroll Cost Distributions */}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               <div className="surface-card rounded-2xl p-5">
-                <h2 className="mb-4 text-sm font-bold">Headcount by Department</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-sm font-bold">Headcount by Department</h2>
+                  <span className="text-xs text-muted">Total: {data.kpis.headcount}</span>
+                </div>
                 <HorizontalBars
-                  emptyText="No employees registered yet. Ask HR to register employees."
+                  emptyText="No employees registered yet."
                   items={(data.headcountByDepartment || []).map(
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     (d: any) => ({
@@ -548,7 +657,10 @@ export default function DashboardPage() {
               </div>
 
               <div className="surface-card rounded-2xl p-5">
-                <h2 className="mb-4 text-sm font-bold">Payroll Cost by Department</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-sm font-bold">Payroll Cost by Department</h2>
+                  <span className="text-xs text-muted">Monthly Gross</span>
+                </div>
                 <HorizontalBars
                   emptyText="No payroll cost data yet."
                   items={(data.payrollByDepartment || []).map(
@@ -556,17 +668,18 @@ export default function DashboardPage() {
                     (d: any) => ({
                       label: d.departmentName,
                       value: Number(d.totalGross || 0),
-                      sub: `${d.count} emp`,
+                      sub: `${d.count} active`,
                     })
                   )}
                 />
               </div>
             </div>
 
+            {/* 4. Diversity, Attrition Flags & Real-time Audit Trail */}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-              {/* Gender & Tenure */}
+              {/* Gender & Tenure Breakdown */}
               <div className="surface-card rounded-2xl p-5 space-y-4">
-                <h2 className="text-sm font-bold">Gender & Tenure Distribution</h2>
+                <h2 className="text-sm font-bold">Diversity & Tenure Bands</h2>
                 <div className="grid grid-cols-3 gap-2 text-center text-xs">
                   {Object.entries(data.genderBreakdown || {}).map(([g, cnt]) => (
                     <div key={g} className="surface-subtle rounded-lg p-2.5">
@@ -594,12 +707,12 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Bonus: Attrition Risk & Absence Anomaly Flags */}
+              {/* Attrition Risk & Anomaly Flags */}
               <div className="surface-card rounded-2xl p-5 space-y-3">
                 <div className="flex items-center justify-between">
                   <h2 className="text-sm font-bold">Attrition Risk & Anomaly Flags</h2>
                   <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
-                    Bonus Analytics
+                    Predictive AI
                   </span>
                 </div>
                 {(data.attritionRisk || []).length === 0 &&
@@ -639,13 +752,13 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              {/* Recent Audit Feed */}
+              {/* Executive Audit Log Feed */}
               <div className="surface-card rounded-2xl p-5 space-y-3">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-bold">Recent Audit Feed</h2>
+                  <h2 className="text-sm font-bold">Recent System Audit Feed</h2>
                   <Link
                     href="/audit-logs"
-                    className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:underline"
+                    className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline"
                   >
                     View all →
                   </Link>
@@ -657,7 +770,7 @@ export default function DashboardPage() {
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     data.auditFeed.map((log: any) => (
                       <div key={log._id} className="surface-subtle rounded-lg p-2.5">
-                        <p className="font-semibold">{log.summary}</p>
+                        <p className="font-semibold text-foreground">{log.summary}</p>
                         <p className="mt-0.5 text-[11px] text-muted">
                           {log.actorName} ({log.actorRole}) ·{" "}
                           {new Date(log.createdAt).toLocaleTimeString([], {
@@ -673,8 +786,11 @@ export default function DashboardPage() {
             </div>
           </div>
         ) : data?.role === "hr" ? (
-          /* ===================== HR DASHBOARD ===================== */
+          /* ===================================================================== */
+          /* ======================= HR EXCLUSIVE DASHBOARD ====================== */
+          /* ===================================================================== */
           <div className="space-y-6">
+            {/* 1. Operational HR KPIs */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
               <KpiCard label="Active Headcount" value={data.kpis.headcount} accent="teal" />
               <KpiCard
@@ -686,13 +802,13 @@ export default function DashboardPage() {
               <KpiCard
                 label="On Leave Today"
                 value={data.kpis.today?.onLeave ?? 0}
-                sub="Approved leaves"
+                sub="Approved leave"
                 accent="indigo"
               />
               <KpiCard
-                label="Late Today"
+                label="Late Arrivals Today"
                 value={data.kpis.today?.late ?? 0}
-                sub={`Period late %: ${data.kpis.latePercentage}%`}
+                sub={`Late %: ${data.kpis.latePercentage}%`}
                 accent="amber"
               />
               <KpiCard
@@ -703,9 +819,116 @@ export default function DashboardPage() {
               />
             </div>
 
+            {/* 2. LIVE TODAY ATTENDANCE ROSTER & PENDING LEAVE APPROVALS */}
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              {/* Live Attendance Roster */}
+              <div className="surface-card rounded-2xl p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-bold">Daily Biometric Attendance Roster</h2>
+                    <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                  </div>
+                  <Link
+                    href="/attendance"
+                    className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 hover:underline"
+                  >
+                    View Board →
+                  </Link>
+                </div>
+                {(data.todayAttendanceRoster || []).length === 0 ? (
+                  <p className="py-6 text-center text-xs text-muted">
+                    No employees have checked in yet today.
+                  </p>
+                ) : (
+                  <div className="space-y-2 text-xs max-h-64 overflow-y-auto">
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                    {data.todayAttendanceRoster.map((att: any) => (
+                      <div
+                        key={att._id}
+                        className="surface-subtle flex items-center justify-between rounded-xl p-3 border border-default/40"
+                      >
+                        <div>
+                          <p className="font-bold text-foreground">
+                            {att.userId?.name || "Employee"}
+                          </p>
+                          <p className="text-[11px] text-muted">
+                            In: {att.checkInAt ? new Date(att.checkInAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "N/A"}{" "}
+                            {att.checkOutAt ? `· Out: ${new Date(att.checkOutAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "· Working"}
+                          </p>
+                        </div>
+                        <StatusPill status={att.status} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Pending Leave Requests Queue */}
+              <div className="surface-card rounded-2xl p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-bold">Pending Leave Approvals Queue</h2>
+                  <Link
+                    href="/leaves"
+                    className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    Full Queue →
+                  </Link>
+                </div>
+                {(data.pendingLeaveList || []).length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-teal-500/30 bg-teal-500/5 p-6 text-center">
+                    <p className="text-xs font-semibold text-teal-600 dark:text-teal-400">
+                      ✓ All leave applications reviewed! No pending requests.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 text-xs max-h-64 overflow-y-auto">
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                    {data.pendingLeaveList.map((req: any) => (
+                      <div
+                        key={req._id}
+                        className="surface-subtle rounded-xl p-3 space-y-1.5 border border-default/40"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold">{req.userId?.name || "Employee"}</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 font-semibold">
+                            {req.leaveTypeId?.name || "Leave"} ({req.workingDays}d)
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-muted line-clamp-1">&quot;{req.reason}&quot;</p>
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-[10px] text-muted">
+                            {req.startDate} to {req.endDate}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              disabled={reviewingLeaveId === req._id}
+                              onClick={() => handleApproveLeave(req._id)}
+                              className="rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 text-[11px] font-bold transition disabled:opacity-50"
+                            >
+                              ✓ Approve
+                            </button>
+                            <button
+                              type="button"
+                              disabled={reviewingLeaveId === req._id}
+                              onClick={() => handleRejectLeave(req._id)}
+                              className="rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 px-2.5 py-1 text-[11px] font-bold transition disabled:opacity-50"
+                            >
+                              ✕ Reject
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 3. Trends & Department Absenteeism */}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               <div className="surface-card rounded-2xl p-5">
-                <h2 className="mb-3 text-sm font-bold">Attendance Trend</h2>
+                <h2 className="mb-3 text-sm font-bold">Attendance Trend (Period)</h2>
                 <AttendanceTrendSvg points={data.attendanceTrend || []} />
               </div>
 
@@ -726,6 +949,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
+            {/* 4. Top Late-Comers, Leave Types & Anomalies */}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
               <div className="surface-card rounded-2xl p-5">
                 <h2 className="mb-4 text-sm font-bold">Leave Utilization by Type</h2>
@@ -738,7 +962,7 @@ export default function DashboardPage() {
                       value: l.approvedDays,
                       sub:
                         l.utilizationPercent !== null
-                          ? `${l.utilizationPercent}% of quota`
+                          ? `${l.utilizationPercent}% quota`
                           : "Unlimited",
                     })
                   )}
@@ -815,10 +1039,12 @@ export default function DashboardPage() {
             </div>
           </div>
         ) : (
-          /* ===================== EMPLOYEE SELF-SERVICE DASHBOARD ===================== */
+          /* ===================================================================== */
+          /* ================== EMPLOYEE SELF-SERVICE DASHBOARD ================== */
+          /* ===================================================================== */
           <div className="space-y-6">
-            {/* Check-In / Check-Out Hero Card */}
-            <div className="surface-card rounded-2xl p-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            {/* 1. Check-In / Check-Out Hero Card */}
+            <div className="surface-card rounded-2xl p-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border border-emerald-500/30">
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="text-base font-bold">
@@ -888,7 +1114,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Gamification: Attendance Streak & Kudos Recognition */}
+            {/* 2. Gamification: 18-Day Attendance Streak & Kudos Recognition */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Flame Streak Card */}
               <div className="surface-card rounded-2xl border border-amber-500/30 p-5 space-y-3 relative overflow-hidden bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-transparent shadow-lg">
@@ -956,7 +1182,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* KPIs */}
+            {/* 3. Personal KPIs */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="surface-card rounded-xl border-t-4 border-t-teal-500 p-4">
                 <p className="text-xs font-semibold uppercase text-muted">Hours This Week vs 40h</p>
@@ -987,7 +1213,7 @@ export default function DashboardPage() {
               />
             </div>
 
-            {/* Leave Balance + Last Payslip */}
+            {/* 4. Leave Balances + Last Payslip */}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               <div className="surface-card rounded-2xl p-5">
                 <div className="mb-3 flex items-center justify-between">
@@ -1067,7 +1293,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Announcements Strip on ALL Dashboards (#23) */}
+        {/* Announcements Strip on ALL Dashboards */}
         {!loading && data && (
           <div className="surface-card rounded-2xl p-5">
             <div className="mb-3 flex items-center justify-between">

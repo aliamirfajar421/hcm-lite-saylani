@@ -10,6 +10,7 @@ import {
   login,
   register,
   listPendingUsers,
+  seedPendingDemoUser,
   approveUserRegistration,
   rejectUserRegistration,
   refresh,
@@ -129,9 +130,10 @@ router.post("/auth/enroll-face", auth, requirePasswordChanged, enrollFaceDescrip
 
 // Admin User & Login Management (#05)
 router.get("/auth/users", auth, requirePasswordChanged, requireRole("admin"), listUsers);
-router.get("/auth/pending-users", auth, requirePasswordChanged, requireRole("admin", "hr"), listPendingUsers);
-router.patch("/auth/users/:id/approve", auth, requirePasswordChanged, requireRole("admin"), approveUserRegistration);
-router.patch("/auth/users/:id/reject", auth, requirePasswordChanged, requireRole("admin"), rejectUserRegistration);
+router.get("/auth/pending-users", auth, requireRole("admin", "hr"), listPendingUsers);
+router.post("/auth/pending-users/simulate", auth, requireRole("admin", "hr"), seedPendingDemoUser);
+router.patch("/auth/users/:id/approve", auth, requireRole("admin", "hr"), approveUserRegistration);
+router.patch("/auth/users/:id/reject", auth, requireRole("admin", "hr"), rejectUserRegistration);
 router.post("/auth/users/hr", auth, requirePasswordChanged, requireRole("admin"), createHrLogin);
 router.patch("/auth/users/:id/status", auth, requirePasswordChanged, requireRole("admin"), toggleUserStatus);
 router.post("/auth/users/:id/reset-password", auth, requirePasswordChanged, requireRole("admin"), resetUserPassword);
