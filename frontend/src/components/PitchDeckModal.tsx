@@ -224,3 +224,4 @@ export default function PitchDeckModal({ open, onClose }: PitchDeckModalProps) {
     </ModalDialog>
   );
 }
+

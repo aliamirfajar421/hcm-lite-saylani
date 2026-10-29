@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
@@ -159,6 +159,28 @@ export default function AppShell({
     }>
   >([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const notifRef = useRef<HTMLDivElement | null>(null);
+
+  // Click outside to close notifications dropdown
+  useEffect(() => {
+    if (!notifOpen) return;
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setNotifOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [notifOpen]);
 
   useEffect(() => {
     try {
@@ -271,42 +293,62 @@ export default function AppShell({
             sidebarCollapsed ? "lg:justify-center lg:px-2 px-4 justify-between" : "justify-between px-3.5"
           }`}
         >
-          <div className="flex items-center gap-2 min-w-0">
-            {/* Desktop Gemini Collapse/Expand Hamburger */}
-            <button
-              type="button"
-              onClick={toggleDesktopSidebar}
-              aria-label={sidebarCollapsed ? "Expand navigation menu" : "Collapse navigation menu"}
-              aria-expanded={!sidebarCollapsed}
-              title={sidebarCollapsed ? "Expand menu" : "Collapse menu"}
-              className="gemini-icon-btn hidden lg:inline-flex"
-            >
-              <GeminiHamburgerSvg />
-            </button>
+          {sidebarCollapsed ? (
+            /* Collapsed Desktop: Company Logo Button that EXPANDS on click */
+            <div className="hidden lg:flex items-center justify-center">
+              <button
+                type="button"
+                onClick={toggleDesktopSidebar}
+                aria-label="Expand navigation menu"
+                title={`${companyName || "Saylani Tech"} (Click to expand menu)`}
+                className="group relative flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-600 text-white font-black text-xs shadow-md hover:scale-105 transition cursor-pointer"
+              >
+                <span>{(companyName || "ST").slice(0, 2).toUpperCase()}</span>
+                <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-slate-900 border border-teal-400 text-[8px] text-teal-300 group-hover:scale-110 transition">
+                  <svg viewBox="0 0 24 24" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </span>
+              </button>
+            </div>
+          ) : null}
 
-            {/* Mobile Close Hamburger inside Slide-Over Drawer */}
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen(false)}
-              aria-label="Close navigation menu"
-              className="gemini-icon-btn lg:hidden"
-            >
-              <GeminiHamburgerSvg />
-            </button>
+          {/* Expanded Desktop & Mobile Row */}
+          <div className={`flex items-center gap-2 min-w-0 ${sidebarCollapsed ? "lg:hidden" : "w-full justify-between"}`}>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <button
+                type="button"
+                onClick={toggleDesktopSidebar}
+                aria-label="Collapse navigation menu"
+                title="Collapse menu"
+                className="gemini-icon-btn hidden lg:inline-flex"
+              >
+                <GeminiHamburgerSvg />
+              </button>
 
-            <Link
-              href="/dashboard"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`flex items-center gap-2.5 min-w-0 ${sidebarCollapsed ? "lg:hidden" : ""}`}
-            >
-              <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-teal-600 font-bold text-white shadow-xs">
-                {(companyName || "H").charAt(0).toUpperCase()}
-              </span>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-bold leading-tight">{companyName}</p>
-                <p className="truncate text-[11px] text-muted">HCM Lite · AI HR</p>
-              </div>
-            </Link>
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(false)}
+                aria-label="Close navigation menu"
+                className="gemini-icon-btn lg:hidden"
+              >
+                <GeminiHamburgerSvg />
+              </button>
+
+              <Link
+                href="/dashboard"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-2.5 min-w-0 hover:opacity-90 transition"
+              >
+                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 font-black text-xs text-white shadow-xs">
+                  {(companyName || "ST").slice(0, 2).toUpperCase()}
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold leading-tight">{companyName || "Saylani Tech"}</p>
+                  <p className="truncate text-[11px] text-muted">HCM Lite · AI HR</p>
+                </div>
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -389,27 +431,30 @@ export default function AppShell({
             <Link
               href="/change-password"
               title="Change Password"
-              className={`btn-secondary py-1.5 text-center text-xs ${
-                sidebarCollapsed ? "lg:w-10 lg:px-0 flex-1" : "flex-1"
+              className={`btn-secondary py-2 text-center text-xs flex items-center justify-center gap-1.5 ${
+                sidebarCollapsed ? "lg:w-10 lg:h-10 lg:p-0 flex-1" : "flex-1"
               }`}
             >
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-amber-500" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="7.5" cy="15.5" r="4.5" />
+                <path d="M21 2l-9.6 9.6M15.5 7.5l3 3M18.5 4.5l3 3" />
+              </svg>
               <span className={sidebarCollapsed ? "lg:hidden" : ""}>Password</span>
-              <span aria-hidden="true" className={`hidden ${sidebarCollapsed ? "lg:inline" : ""}`}>
-                🔑
-              </span>
             </Link>
             <button
               type="button"
               onClick={() => void logout()}
               title="Sign Out"
-              className={`btn-secondary py-1.5 text-xs text-rose-600 dark:text-rose-400 ${
-                sidebarCollapsed ? "lg:w-10 lg:px-0 flex-1" : "flex-1"
+              className={`btn-secondary py-2 text-xs text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1.5 ${
+                sidebarCollapsed ? "lg:w-10 lg:h-10 lg:p-0 flex-1" : "flex-1"
               }`}
             >
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-rose-500" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
               <span className={sidebarCollapsed ? "lg:hidden" : ""}>Sign Out</span>
-              <span aria-hidden="true" className={`hidden ${sidebarCollapsed ? "lg:inline" : ""}`}>
-                ↪
-              </span>
             </button>
           </div>
         </div>
@@ -448,8 +493,8 @@ export default function AppShell({
               <span>Ask AI</span>
             </button>
 
-            {/* Notifications Dropdown */}
-            <div className="relative">
+            {/* Notifications Dropdown with Click-Outside Closure */}
+            <div ref={notifRef} className="relative">
               <button
                 type="button"
                 onClick={() => {
@@ -544,7 +589,10 @@ export default function AppShell({
                       }}
                       className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center justify-center gap-1.5 w-full"
                     >
-                      <span>📱</span>
+                      <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-emerald-500" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+                        <line x1="12" y1="18" x2="12.01" y2="18" />
+                      </svg>
                       <span>Preview Simulated WhatsApp Alerts</span>
                     </button>
                   </div>
