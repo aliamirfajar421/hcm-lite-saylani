@@ -14,10 +14,13 @@ import ThemeToggle from "./ThemeToggle";
 import AiAssistantDrawer from "./AiAssistantDrawer";
 import JudgeRoleSwitcher from "./JudgeRoleSwitcher";
 import WhatsAppAlertSimulator from "./WhatsAppAlertSimulator";
+import { useLanguage } from "@/context/LanguageContext";
+import { sound } from "@/lib/audio";
 
 interface NavItem {
   href: string;
   label: string;
+  navKey: string;
   iconKey:
     | "dashboard"
     | "org"
@@ -26,21 +29,23 @@ interface NavItem {
     | "attendance"
     | "leaves"
     | "payroll"
+    | "performance"
     | "announcements"
     | "audit";
   roles: UserRole[];
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", iconKey: "dashboard", roles: ["admin", "hr", "employee"] },
-  { href: "/organization", label: "Organization & Rules", iconKey: "org", roles: ["admin", "hr"] },
-  { href: "/employees", label: "Employees", iconKey: "employees", roles: ["admin", "hr"] },
-  { href: "/employees", label: "My Profile", iconKey: "profile", roles: ["employee"] },
-  { href: "/attendance", label: "Attendance", iconKey: "attendance", roles: ["admin", "hr", "employee"] },
-  { href: "/leaves", label: "Leave Management", iconKey: "leaves", roles: ["admin", "hr", "employee"] },
-  { href: "/payroll", label: "Payroll & Payslips", iconKey: "payroll", roles: ["admin", "hr", "employee"] },
-  { href: "/announcements", label: "Announcements", iconKey: "announcements", roles: ["admin", "hr", "employee"] },
-  { href: "/audit-logs", label: "Audit Log", iconKey: "audit", roles: ["admin"] },
+  { href: "/dashboard", label: "Dashboard", navKey: "nav_dashboard", iconKey: "dashboard", roles: ["admin", "hr", "employee"] },
+  { href: "/organization", label: "Organization & Rules", navKey: "nav_organization", iconKey: "org", roles: ["admin", "hr"] },
+  { href: "/employees", label: "Employees", navKey: "nav_employees", iconKey: "employees", roles: ["admin", "hr"] },
+  { href: "/employees", label: "My Profile", navKey: "nav_employees", iconKey: "profile", roles: ["employee"] },
+  { href: "/attendance", label: "Attendance", navKey: "nav_attendance", iconKey: "attendance", roles: ["admin", "hr", "employee"] },
+  { href: "/leaves", label: "Leave Management", navKey: "nav_leaves", iconKey: "leaves", roles: ["admin", "hr", "employee"] },
+  { href: "/payroll", label: "Payroll & Payslips", navKey: "nav_payroll", iconKey: "payroll", roles: ["admin", "hr", "employee"] },
+  { href: "/performance", label: "Performance & OKRs", navKey: "nav_performance", iconKey: "performance", roles: ["admin", "hr", "employee"] },
+  { href: "/announcements", label: "Announcements", navKey: "nav_announcements", iconKey: "announcements", roles: ["admin", "hr", "employee"] },
+  { href: "/audit-logs", label: "Audit Log", navKey: "nav_audit_logs", iconKey: "audit", roles: ["admin"] },
 ];
 
 function GeminiHamburgerSvg() {
@@ -114,6 +119,13 @@ function NavIcon({ iconKey }: { iconKey: NavItem["iconKey"] }) {
           <path d="M2 10h20" />
         </svg>
       );
+    case "performance":
+      return (
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="8" r="6" />
+          <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" />
+        </svg>
+      );
     case "announcements":
       return (
         <svg aria-hidden="true" viewBox="0 0 24 24" className="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
@@ -142,6 +154,7 @@ export default function AppShell({
     useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const { language, toggleLanguage, t } = useLanguage();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -396,7 +409,7 @@ export default function AppShell({
               >
                 <NavIcon iconKey={item.iconKey} />
                 <span className={`truncate ${sidebarCollapsed ? "lg:hidden" : ""}`}>
-                  {item.label}
+                  {t(item.navKey, item.label)}
                 </span>
               </Link>
             );
@@ -599,6 +612,20 @@ export default function AppShell({
                 </div>
               )}
             </div>
+
+            {/* Bilingual Language Switcher */}
+            <button
+              type="button"
+              onClick={() => {
+                sound.playClick();
+                toggleLanguage();
+              }}
+              className="rounded-full border border-teal-500/30 bg-teal-500/10 hover:bg-teal-500/20 px-3 py-1.5 text-xs font-bold text-teal-600 dark:text-teal-400 transition flex items-center gap-1.5 shadow-xs"
+              title="Switch English / Roman Urdu"
+            >
+              <span>🌐</span>
+              <span className="text-[11px] font-extrabold uppercase">{language === "en" ? "EN" : "Roman Urdu"}</span>
+            </button>
 
             <ThemeToggle />
           </div>

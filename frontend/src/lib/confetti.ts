@@ -1,9 +1,15 @@
+import { sound } from "./audio";
+
 /**
  * Lightweight Zero-Dependency Canvas Confetti Burst
  * Optimized for celebration wow-factors (face scan check-in, leave approval, payroll)
  */
-export function triggerConfetti(durationMs: number = 2500) {
+export function triggerConfetti(durationMs: number = 2500, playSound: boolean = true) {
   if (typeof window === "undefined") return;
+
+  if (playSound) {
+    sound.playVictory();
+  }
 
   const canvas = document.createElement("canvas");
   canvas.style.position = "fixed";

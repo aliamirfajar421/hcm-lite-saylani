@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import QueryProvider from "@/api/QueryProvider";
 import { AuthProvider } from "@/context/AuthContext";
+import { LanguageProvider } from "@/context/LanguageContext";
 
 export const metadata: Metadata = {
   title: "HCM Lite — AI-Assisted Human Capital Management",
@@ -28,7 +29,9 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         <QueryProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <LanguageProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </LanguageProvider>
         </QueryProvider>
       </body>
     </html>

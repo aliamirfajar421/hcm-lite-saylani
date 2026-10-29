@@ -31,6 +31,7 @@ import CameraCheckInModal from "@/components/CameraCheckInModal";
 import ExecutiveReportModal from "@/components/ExecutiveReportModal";
 import DigitalEmployeeBadge from "@/components/DigitalEmployeeBadge";
 import { triggerConfetti } from "@/lib/confetti";
+import { sound } from "@/lib/audio";
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -1165,6 +1166,7 @@ export default function DashboardPage() {
                   <button
                     type="button"
                     onClick={() => {
+                      sound.playKudos();
                       triggerConfetti(2500);
                       setToast("⭐ Kudos sent to teammates!");
                     }}

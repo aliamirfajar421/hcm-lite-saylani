@@ -13,6 +13,11 @@ import {
 import { parseCsv, toCsv } from "../services/csvService.js";
 import { computeLeaveBalanceForUser } from "../services/analyticsService.js";
 import { recordAudit } from "../services/auditService.js";
+import {
+  generateOfferLetterPdfBuffer,
+  generateExperienceLetterPdfBuffer,
+} from "../services/pdfService.js";
+import { getActiveSettings } from "../services/analyticsService.js";
 
 /**
  * #06 HR Registers an Employee (creates login with temporary password + mustChangePassword: true)
@@ -558,4 +563,52 @@ export const exportEmployeesCsv = async (_req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+export const downloadOfferLetterPdf = async (req, res) => {
+  try {
+    const emp = await Employee.findById(req.params.id)
+      .populate("departmentId", "name code")
+      .populate("designationId", "title")
+      .lean();
+    if (!emp) return res.status(404).json({ message: "Employee not found" });
+
+    const settings = await getActiveSettings();
+    const companyName = settings.companyName || "Saylani Tech HCM Lite";
+    const currency = settings.currency || "PKR";
+
+    const pdfBuffer = generateOfferLetterPdfBuffer(emp, companyName, currency);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="Offer_Letter_${emp.employeeCode || "emp"}.pdf"`
+    );
+    res.send(pdfBuffer);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const downloadExperienceLetterPdf = async (req, res) => {
+  try {
+    const emp = await Employee.findById(req.params.id)
+      .populate("departmentId", "name code")
+      .populate("designationId", "title")
+      .lean();
+    if (!emp) return res.status(404).json({ message: "Employee not found" });
+
+    const settings = await getActiveSettings();
+    const companyName = settings.companyName || "Saylani Tech HCM Lite";
+
+    const pdfBuffer = generateExperienceLetterPdfBuffer(emp, companyName);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="Experience_Certificate_${emp.employeeCode || "emp"}.pdf"`
+    );
+    res.send(pdfBuffer);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 

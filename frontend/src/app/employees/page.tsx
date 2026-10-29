@@ -7,6 +7,8 @@ import {
   Department,
   Designation,
   downloadPayslipPdf,
+  downloadOfferLetterPdf,
+  downloadExperiencePdf,
   EmployeeRecord,
   exportEmployeesCsvDownload,
   getEmployee360Api,
@@ -22,6 +24,7 @@ import {
 import { getApiErrorMessage } from "@/lib/api";
 import { StatusPill } from "@/components/Charts";
 import ModalDialog from "@/components/ModalDialog";
+import OnboardingModal from "@/components/OnboardingModal";
 
 export default function EmployeesPage() {
   const { user, currency } = useAuth();
@@ -49,6 +52,16 @@ export default function EmployeesPage() {
     name: string;
     email: string;
     tempPass: string;
+  } | null>(null);
+
+  // Onboarding Checklist Modal
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [selectedOnboardingEmp, setSelectedOnboardingEmp] = useState<{
+    _id: string;
+    fullName: string;
+    employeeCode: string;
+    departmentName?: string;
+    designationTitle?: string;
   } | null>(null);
 
   // Register Employee Modal (HR)
@@ -446,13 +459,40 @@ export default function EmployeesPage() {
                         <StatusPill status={e.employmentStatus} />
                       </td>
                       <td>
-                        <button
-                          type="button"
-                          onClick={() => void open360(e._id)}
-                          className="btn-secondary py-1 px-2.5 text-xs"
-                        >
-                          360 Profile →
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => void open360(e._id)}
+                            className="btn-secondary py-1 px-2 text-xs"
+                          >
+                            360 Profile →
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedOnboardingEmp({
+                                _id: e._id,
+                                fullName: e.fullName,
+                                employeeCode: e.employeeCode,
+                                departmentName: e.departmentId?.name,
+                                designationTitle: e.designationId?.title,
+                              });
+                              setOnboardingOpen(true);
+                            }}
+                            title="Interactive Onboarding Checklist"
+                            className="rounded-lg border border-teal-500/30 bg-teal-500/10 hover:bg-teal-500/20 px-2 py-1 text-xs font-bold text-teal-600 dark:text-teal-400 transition"
+                          >
+                            📋 Onboarding
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void downloadOfferLetterPdf(e._id, e.employeeCode)}
+                            title="Download Official Offer Letter PDF"
+                            className="rounded-lg border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 px-2 py-1 text-xs font-bold text-purple-600 dark:text-purple-400 transition"
+                          >
+                            📄 Offer
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -1018,10 +1058,48 @@ export default function EmployeesPage() {
                   )}
                 </div>
               </div>
+              {/* Official Corporate Letters (#Offer & #Experience) */}
+              <div className="pt-2 border-t border-[var(--border-color)]">
+                <h3 className="font-bold mb-2">Official Employment Documents</h3>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void downloadOfferLetterPdf(
+                        emp360.employee._id,
+                        emp360.employee.employeeCode
+                      )
+                    }
+                    className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5"
+                  >
+                    <span>📄</span>
+                    <span>Download Offer Letter PDF</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void downloadExperiencePdf(
+                        emp360.employee._id,
+                        emp360.employee.employeeCode
+                      )
+                    }
+                    className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5"
+                  >
+                    <span>🎖️</span>
+                    <span>Download Experience Certificate PDF</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
       </ModalDialog>
+
+      <OnboardingModal
+        open={onboardingOpen}
+        onClose={() => setOnboardingOpen(false)}
+        employee={selectedOnboardingEmp}
+      />
     </AppShell>
   );
 }

@@ -52,7 +52,17 @@ import {
   updateSalaryStructure,
   importEmployeesCsv,
   exportEmployeesCsv,
+  downloadOfferLetterPdf,
+  downloadExperienceLetterPdf,
 } from "../controllers/employeeController.js";
+
+import {
+  listPerformance,
+  addOrUpdateGoal,
+  updateGoalProgress,
+  submitAppraisal,
+  generateAiReview,
+} from "../controllers/performanceController.js";
 
 import {
   checkIn,
@@ -169,6 +179,15 @@ router.post("/employees", auth, requirePasswordChanged, requireRole("hr"), regis
 router.get("/employees/:id", auth, requirePasswordChanged, getEmployee360);
 router.put("/employees/:id", auth, requirePasswordChanged, requireRole("hr"), updateEmployee);
 router.put("/employees/:id/salary", auth, requirePasswordChanged, requireRole("hr"), updateSalaryStructure);
+router.get("/employees/:id/offer-letter-pdf", auth, downloadOfferLetterPdf);
+router.get("/employees/:id/experience-letter-pdf", auth, downloadExperienceLetterPdf);
+
+// ==================== Performance & OKRs ====================
+router.get("/performance", auth, requirePasswordChanged, listPerformance);
+router.post("/performance/goals", auth, requirePasswordChanged, addOrUpdateGoal);
+router.patch("/performance/:id/goals/:goalId", auth, requirePasswordChanged, updateGoalProgress);
+router.patch("/performance/:id/review", auth, requirePasswordChanged, requireRole("admin", "hr"), submitAppraisal);
+router.post("/performance/:id/ai-review", auth, requirePasswordChanged, generateAiReview);
 
 // ==================== M4: Attendance ====================
 router.post("/attendance/check-in", auth, requirePasswordChanged, requireRole("hr", "employee"), checkIn);

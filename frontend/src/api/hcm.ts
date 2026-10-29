@@ -742,6 +742,73 @@ export const downloadPayslipPdf = (id: string, code = "EMP", year = 2026, month 
     `Payslip_${code}_${year}-${String(month).padStart(2, "0")}.pdf`
   );
 
+export const downloadOfferLetterPdf = (employeeId: string, code = "EMP") =>
+  downloadAuthenticatedBlob(
+    `/employees/${employeeId}/offer-letter-pdf`,
+    `Offer_Letter_${code}.pdf`
+  );
+
+export const downloadExperiencePdf = (employeeId: string, code = "EMP") =>
+  downloadAuthenticatedBlob(
+    `/employees/${employeeId}/experience-letter-pdf`,
+    `Experience_Certificate_${code}.pdf`
+  );
+
+// ==================== M10: Performance & OKRs ====================
+export interface OkrGoal {
+  _id: string;
+  title: string;
+  description?: string;
+  targetMetric?: string;
+  progress: number;
+  status: "in_progress" | "completed" | "delayed";
+}
+
+export interface PerformanceRecord {
+  _id: string;
+  employeeId: {
+    _id: string;
+    fullName: string;
+    employeeCode: string;
+    departmentId?: { name: string; code: string };
+    designationId?: { title: string };
+  };
+  userId: { _id: string; name: string; email: string };
+  period: string;
+  goals: OkrGoal[];
+  managerRating: number;
+  managerFeedback: string;
+  aiSummary: string;
+  reviewedBy?: { name: string };
+  reviewedAt?: string;
+  updatedAt: string;
+}
+
+export const listPerformanceApi = async () => {
+  const { data } = await api.get<{ records: PerformanceRecord[]; myRecord?: PerformanceRecord }>("/performance");
+  return data;
+};
+
+export const addGoalApi = async (payload: { title: string; description?: string; targetMetric?: string; progress?: number; employeeId?: string }) => {
+  const { data } = await api.post("/performance/goals", payload);
+  return data;
+};
+
+export const updateGoalProgressApi = async (id: string, goalId: string, payload: { progress: number; status?: string }) => {
+  const { data } = await api.patch(`/performance/${id}/goals/${goalId}`, payload);
+  return data;
+};
+
+export const submitAppraisalApi = async (id: string, payload: { rating: number; feedback: string }) => {
+  const { data } = await api.patch(`/performance/${id}/review`, payload);
+  return data;
+};
+
+export const generateAiPerformanceReviewApi = async (id: string) => {
+  const { data } = await api.post<{ message: string; aiSummary: string }>(`/performance/${id}/ai-review`);
+  return data;
+};
+
 // ==================== M7: Dashboards ====================
 export const getDashboardApi = async (params?: {
   startDate?: string;
