@@ -179,3 +179,4 @@ export default function OnboardingModal({ open, onClose, employee }: OnboardingM
     </ModalDialog>
   );
 }
+

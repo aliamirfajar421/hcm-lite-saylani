@@ -86,6 +86,58 @@ export default function OrganizationPage() {
   const [resetTarget, setResetTarget] = useState<{ id: string; email: string } | null>(null);
   const [resetTempPass, setResetTempPass] = useState("Reset@123");
 
+  // Live Geofence Distance Simulator
+  const [testingGps, setTestingGps] = useState(false);
+  const [gpsTestResult, setGpsTestResult] = useState<{
+    myLat: number;
+    myLng: number;
+    distanceMeters: number;
+    isInside: boolean;
+  } | null>(null);
+
+  const calculateDistanceMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371e3;
+    const φ1 = (lat1 * Math.PI) / 180;
+    const φ2 = (lat2 * Math.PI) / 180;
+    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  const handleTestGpsDistance = () => {
+    if (!("geolocation" in navigator)) {
+      setError("Geolocation is not supported by your browser");
+      return;
+    }
+    setTestingGps(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const myLat = pos.coords.latitude;
+        const myLng = pos.coords.longitude;
+        const offLat = settings?.officeLocation?.lat ?? 24.8607;
+        const offLng = settings?.officeLocation?.lng ?? 67.0011;
+        const rad = settings?.officeLocation?.radiusMeters ?? 150;
+        const dist = calculateDistanceMeters(myLat, myLng, offLat, offLng);
+        setGpsTestResult({
+          myLat,
+          myLng,
+          distanceMeters: Math.round(dist),
+          isInside: dist <= rad,
+        });
+        setTestingGps(false);
+      },
+      (err) => {
+        setError(`GPS error: ${err.message}`);
+        setTestingGps(false);
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  };
+
   const loadAll = useCallback(async () => {
     setError("");
     try {
@@ -451,6 +503,86 @@ export default function OrganizationPage() {
                     className="input-field"
                   />
                 </div>
+              </div>
+
+              {/* Geofence Radar & Distance Test Sandbox */}
+              <div className="surface-subtle rounded-2xl p-4 border border-default/70 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-muted flex items-center gap-1.5">
+                      <span>🎯</span> Live Geofence Radar & Range Simulator
+                    </h3>
+                    <p className="text-[11px] text-muted">
+                      Test your real-time browser GPS distance relative to the configured office coordinates.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={testingGps}
+                    onClick={handleTestGpsDistance}
+                    className="rounded-xl bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 text-xs font-bold transition shadow-xs flex items-center gap-1.5 self-start disabled:opacity-50"
+                  >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" /></svg>
+                    <span>{testingGps ? "Pinging Satellites..." : "Test My Distance Now"}</span>
+                  </button>
+                </div>
+
+                {/* Radius Preset Steppers */}
+                {isAdmin && (
+                  <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-default/40 text-xs">
+                    <span className="text-muted text-[11px] font-semibold">Quick Radius Presets:</span>
+                    {[50, 150, 300, 500, 1000].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() =>
+                          setSettings({
+                            ...settings,
+                            officeLocation: {
+                              ...settings.officeLocation,
+                              radiusMeters: preset,
+                            },
+                          })
+                        }
+                        className={`rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+                          settings.officeLocation?.radiusMeters === preset
+                            ? "bg-teal-600 text-white shadow-xs"
+                            : "surface-card border border-default text-muted hover:text-foreground"
+                        }`}
+                      >
+                        {preset}m
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Test Result Display */}
+                {gpsTestResult && (
+                  <div
+                    className={`rounded-xl p-3 text-xs border space-y-1 ${
+                      gpsTestResult.isInside
+                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
+                        : "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between font-bold">
+                      <span>
+                        {gpsTestResult.isInside ? "✓ Inside Office Boundary" : "⚠️ Outside Geofence"}
+                      </span>
+                      <span>
+                        {gpsTestResult.distanceMeters > 1000
+                          ? `${(gpsTestResult.distanceMeters / 1000).toFixed(2)} km away`
+                          : `${gpsTestResult.distanceMeters} meters away`}
+                      </span>
+                    </div>
+                    <p className="text-[11px] opacity-90">
+                      {gpsTestResult.isInside
+                        ? `You are within the allowed ${settings.officeLocation?.radiusMeters ?? 150}m geofence radius. Biometric check-in will pass automatically.`
+                        : `You are beyond the ${settings.officeLocation?.radiusMeters ?? 150}m limit. Use 'Remote / WFH Mode' toggle on camera check-in or submit an HR Correction request.`}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 

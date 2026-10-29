@@ -70,6 +70,7 @@ import {
   resetTodayAttendance,
   getAttendanceCalendar,
   getDailyBoard,
+  exportAttendanceCsv,
   requestCorrection,
   listCorrections,
   reviewCorrection,
@@ -195,6 +196,7 @@ router.post("/attendance/check-out", auth, requirePasswordChanged, requireRole("
 router.post("/attendance/reset-today", auth, requirePasswordChanged, requireRole("hr", "employee", "admin"), resetTodayAttendance);
 router.get("/attendance/calendar", auth, requirePasswordChanged, getAttendanceCalendar);
 router.get("/attendance/board", auth, requirePasswordChanged, requireRole("admin", "hr"), getDailyBoard);
+router.get("/attendance/export", auth, requirePasswordChanged, requireRole("admin", "hr"), exportAttendanceCsv);
 
 router.post("/attendance/corrections", auth, requirePasswordChanged, requireRole("hr", "employee"), requestCorrection);
 router.get("/attendance/corrections", auth, requirePasswordChanged, listCorrections);

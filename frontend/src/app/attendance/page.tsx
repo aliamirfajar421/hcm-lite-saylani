@@ -8,6 +8,7 @@ import {
   checkOutApi,
   Department,
   EmployeeRecord,
+  exportAttendanceCsvDownload,
   getAttendanceCalendarApi,
   getDailyBoardApi,
   listCorrectionsApi,
@@ -259,6 +260,17 @@ export default function AttendancePage() {
                   ))}
                 </select>
               )}
+              {isManager && (
+                <button
+                  type="button"
+                  onClick={() => void exportAttendanceCsvDownload(undefined, calMonth, calYear)}
+                  className="btn-secondary text-xs flex items-center gap-1.5 shrink-0"
+                  title="Download Monthly Attendance CSV"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+                  <span>Export CSV</span>
+                </button>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-7">
@@ -322,6 +334,15 @@ export default function AttendancePage() {
                   </option>
                 ))}
               </select>
+              <button
+                type="button"
+                onClick={() => void exportAttendanceCsvDownload(boardDate)}
+                className="btn-secondary text-xs flex items-center gap-1.5 shrink-0"
+                title="Download Daily Board Attendance CSV"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+                <span>Export Daily CSV</span>
+              </button>
             </div>
 
             {boardData?.counts && (

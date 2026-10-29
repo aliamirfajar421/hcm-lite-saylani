@@ -583,6 +583,15 @@ export const getDailyBoardApi = async (params?: { date?: string; departmentId?: 
   return data;
 };
 
+export const exportAttendanceCsvDownload = (date?: string, month?: number, year?: number) => {
+  const query = new URLSearchParams();
+  if (date) query.set("date", date);
+  if (month) query.set("month", String(month));
+  if (year) query.set("year", String(year));
+  const filename = date ? `Attendance_${date}.csv` : `Attendance_${year || 2026}_${month || 1}.csv`;
+  return downloadAuthenticatedBlob(`/attendance/export?${query.toString()}`, filename);
+};
+
 export const requestCorrectionApi = async (payload: {
   date: string;
   requestedCheckIn: string;

@@ -14,6 +14,8 @@ import ThemeToggle from "./ThemeToggle";
 import AiAssistantDrawer from "./AiAssistantDrawer";
 import JudgeRoleSwitcher from "./JudgeRoleSwitcher";
 import WhatsAppAlertSimulator from "./WhatsAppAlertSimulator";
+import JudgeTourModal from "./JudgeTourModal";
+import DigitalEmployeeBadge from "./DigitalEmployeeBadge";
 import { useLanguage } from "@/context/LanguageContext";
 import { sound } from "@/lib/audio";
 
@@ -161,6 +163,29 @@ export default function AppShell({
   const [aiOpen, setAiOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [whatsAppOpen, setWhatsAppOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
+  const [badgeModalOpen, setBadgeModalOpen] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  const handleInstallPwa = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === "accepted") {
+      setDeferredPrompt(null);
+    }
+  };
   const [notifications, setNotifications] = useState<
     Array<{
       _id: string;
@@ -613,6 +638,33 @@ export default function AppShell({
               )}
             </div>
 
+            {/* Judge Tour / Presentation Fast Cheat-Sheet */}
+            <button
+              type="button"
+              onClick={() => {
+                sound.playClick();
+                setTourOpen(true);
+              }}
+              className="rounded-full border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 px-3 py-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 transition flex items-center gap-1.5 shadow-xs"
+              title="60-Second Presentation Tour & Evaluation Cheat-Sheet"
+            >
+              <span>🚀</span>
+              <span className="hidden sm:inline">Judge Tour</span>
+            </button>
+
+            {/* PWA Mobile App Install Pill (If browser supports) */}
+            {deferredPrompt && (
+              <button
+                type="button"
+                onClick={handleInstallPwa}
+                className="rounded-full border border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 transition flex items-center gap-1.5 shadow-xs"
+                title="Install HCM Lite as Native Mobile App"
+              >
+                <span>📱</span>
+                <span className="hidden sm:inline">Install App</span>
+              </button>
+            )}
+
             {/* Bilingual Language Switcher */}
             <button
               type="button"
@@ -652,6 +704,30 @@ export default function AppShell({
         role={user.role}
         userName={user?.name || user?.email || "User"}
         userId={user.id}
+      />
+
+      {/* 60-Second Fast Presentation Tour for Judges */}
+      <JudgeTourModal
+        open={tourOpen}
+        onClose={() => setTourOpen(false)}
+        onOpenAiDrawer={() => setAiOpen(true)}
+        onOpenBadge={() => setBadgeModalOpen(true)}
+      />
+
+      {/* Smart ID Badge Triggered from Tour or Cockpit */}
+      <DigitalEmployeeBadge
+        open={badgeModalOpen}
+        onClose={() => setBadgeModalOpen(false)}
+        employeeData={{
+          fullName: user?.name,
+          email: user?.email,
+          employeeCode: "EMP001",
+          designation: "Software Engineer",
+          department: "Engineering",
+          bloodGroup: "O+",
+          joiningDate: "2026-01-15",
+        }}
+        companyName={companyName || "Saylani Tech"}
       />
     </div>
   );

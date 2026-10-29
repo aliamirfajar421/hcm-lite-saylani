@@ -15,6 +15,7 @@ import {
   isValidIsoDate,
 } from "../services/rulesService.js";
 import { recordAudit, sendNotification } from "../services/auditService.js";
+import { toCsv } from "../services/csvService.js";
 
 /**
  * #09 Web & Camera Check-In (Server stamps time; second check-in = 409; Haversine + Face check on server)
@@ -532,6 +533,69 @@ export const resetTodayAttendance = async (req, res) => {
       message: `Today's attendance (${evalResult.dateStr}) reset successfully. You can now re-test camera face check-in!`,
       deletedCount: result.deletedCount,
     });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const exportAttendanceCsv = async (req, res) => {
+  try {
+    const { date, month, year } = req.query;
+    const query = {};
+
+    if (date) {
+      query.date = String(date).trim();
+    } else if (month && year) {
+      const padM = String(month).padStart(2, "0");
+      query.date = { $regex: `^${year}-${padM}` };
+    }
+
+    const records = await Attendance.find(query)
+      .populate("userId", "name email")
+      .populate({
+        path: "employeeId",
+        populate: { path: "departmentId", select: "name code" },
+      })
+      .sort({ date: -1, checkInAt: -1 })
+      .lean();
+
+    const headers = [
+      { key: "date", label: "Date" },
+      { key: "employeeCode", label: "Employee Code" },
+      { key: "fullName", label: "Full Name" },
+      { key: "department", label: "Department" },
+      { key: "checkInAt", label: "Check-In Time" },
+      { key: "checkOutAt", label: "Check-Out Time" },
+      { key: "workedHours", label: "Worked Hours" },
+      { key: "status", label: "Status" },
+      { key: "distanceMeters", label: "Office Distance (m)" },
+      { key: "livenessVerified", label: "Liveness Passed" },
+      { key: "source", label: "Check-In Source" },
+    ];
+
+    const rows = records.map((r) => ({
+      date: r.date,
+      employeeCode: r.employeeId?.employeeCode || "N/A",
+      fullName: r.employeeId?.fullName || r.userId?.name || "Employee",
+      department: r.employeeId?.departmentId?.name || "General",
+      checkInAt: r.checkInAt
+        ? new Date(r.checkInAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        : "N/A",
+      checkOutAt: r.checkOutAt
+        ? new Date(r.checkOutAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        : "N/A",
+      workedHours: r.workedHours ? `${r.workedHours}h` : "0h",
+      status: r.status,
+      distanceMeters: r.officeDistanceMeters ? `${Math.round(r.officeDistanceMeters)}m` : "N/A",
+      livenessVerified: r.livenessVerified ? "YES" : "NO",
+      source: r.source || "web",
+    }));
+
+    const csv = toCsv(headers, rows);
+    const filename = date ? `Attendance_${date}.csv` : `Attendance_${year || "all"}_${month || "all"}.csv`;
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send(csv);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
